@@ -21,7 +21,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         {error && <p style={{ color: "var(--warn)" }}>{ERRORS[error] ?? "Sign-in failed. Try again."}</p>}
         <a className="btn primary" href="/api/auth/google" style={{ justifyContent: "center" }}>Continue with Google</a>
         {dev && <a className="btn ghost" href="/api/auth/dev-login" style={{ justifyContent: "center" }}>Local dev sign-in</a>}
-        <p className="small faint">Signing in only shares your name and email with Kingdom. Calendar and email access are separate and optional.</p>
+        <p className="small faint">Signing in only shares your name and email with Kingdom. Calendar and email access are separate and optional. <a href="/privacy">Privacy</a></p>
       </div>
     </main>
   );
