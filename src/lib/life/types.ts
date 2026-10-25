@@ -20,7 +20,7 @@ export type Reflection = { areas: Record<string, AreaReflection>; done?: boolean
 export type NetworkMetric = "new_people" | "conversations" | "mentor_conversations" | "reconnects" | "events" | "commitments_kept";
 export type NetworkGoal = { id: string; title: string; metric: NetworkMetric; target: number; period: "week" | "month"; areaId: string };
 
-export type CoachAccess = { reflections: boolean; network: boolean; profile: boolean };
+export type CoachAccess = { reflections: boolean; network: boolean; profile: boolean; calendar?: boolean };
 
 export type LifeDoc = {
   v: 2;

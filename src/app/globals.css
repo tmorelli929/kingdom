@@ -203,3 +203,14 @@ textarea.in { resize: vertical; min-height: 70px; line-height: 1.5 }
 .lvl { white-space: nowrap }
 .card { align-content: start }
 @media (min-width: 761px) { .skills { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) } }
+
+/* Calendar */
+.calweek { display: grid; gap: 8px; margin-top: 10px }
+.calday { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0 }
+.calday.today { border-color: color-mix(in srgb, var(--gold) 60%, transparent) }
+.calday.past { opacity: .6 }
+.calday-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 4px }
+.calflags { display: flex; gap: 6px; margin-left: auto }
+.calev { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 14px; overflow-wrap: anywhere }
+.calev .num { flex: 0 0 auto; min-width: 92px }
+.calev.free { opacity: .6 }

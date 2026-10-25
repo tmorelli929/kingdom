@@ -7,6 +7,7 @@ import { uid } from "@/lib/life/defaults";
 import { useApp } from "../App";
 import { pct } from "../ui";
 import { Missions } from "./Today";
+import { CalendarWeek } from "./CalendarCard";
 
 export function HistChart({ points, label }: { points: { k: string; v: number | null }[]; label: string }) {
   const W = 320, H = 130, L = 30, R = 8, T = 10, B = 22, iw = W - L - R, ih = H - T - B, bw = iw / points.length;
@@ -77,11 +78,12 @@ export default function Week() {
           <tbody>{doc.habits.map((h) => <tr key={h.id}><td>{h.name}</td>{days.map((k) => <td key={k}><span className={`cell${doc.days[k]?.done?.[h.id] ? " on" : ""}${k > today ? " off" : ""}`} /></td>)}</tr>)}</tbody>
         </table></div>
       </section>
+      <CalendarWeek days={days} />
       <section className="card">
-        <div className="card-head"><h2>What&apos;s on the calendar</h2><span className="pill info">CALENDAR SYNC: PHASE 2</span></div>
-        <textarea className="in" id="schedule" rows={3} value={doc.schedule[wk] ?? ""} placeholder="e.g. Tue and Wed late customer dinners, Thursday travel, Saturday free"
+        <div className="card-head"><h2>Your note about this week</h2></div>
+        <textarea className="in" id="schedule" rows={3} value={doc.schedule[wk] ?? ""} placeholder="e.g. Thursday travel, protecting Friday night for Juliette"
           onChange={(e) => mutate((d) => { d.schedule[wk] = e.target.value; })} />
-        <p className="small muted">Until Google Calendar is connected, the coach reads this note to compare your priorities with how your week is shaped.</p>
+        <p className="small muted">Anything the calendar doesn&apos;t show. The coach reads this alongside your calendar.</p>
       </section>
       <section className="card">
         <div className="card-head"><h2>Weekly reflection</h2>{r.done ? <span className="pill good">REFLECTED</span> : <span className="xp">+{REFLECT_XP} per area</span>}</div>

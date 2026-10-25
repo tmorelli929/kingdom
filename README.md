@@ -2,7 +2,7 @@
 
 A private dashboard for living according to what matters most: daily intentions and quests, weekly missions and reflection, seven life areas that level up, a personal network (relationships, conversations, commitments), and an AI coach that sees all of it.
 
-This is V2, Phase 1: the hosted foundation. Google Calendar (Phase 2), weekly planning (Phase 3), Gmail (Phase 4) and LinkedIn import (Phase 5) come next.
+This is V2 through Phase 2: the hosted foundation plus a read-only Google Calendar connection. Weekly planning (Phase 3), Gmail (Phase 4) and LinkedIn import (Phase 5) come next.
 
 ## How it's built, in plain English
 
@@ -60,6 +60,14 @@ Click **Deploy**. The build runs the database migrations first (`npm run vercel-
 
 Add the site to your phone's home screen from the browser's Share menu.
 
+### 7. Connect Google Calendar (optional)
+1. In Google Cloud, search for **Google Calendar API** and click **Enable**.
+2. In **Google Auth Platform → Branding**, set the home page to `https://YOUR-APP.vercel.app`, the privacy policy to `https://YOUR-APP.vercel.app/privacy`, and add `YOUR-APP.vercel.app` under authorized domains. Save.
+3. **Audience → Publish app.** (Apps left in "Testing" lose calendar access every 7 days.)
+4. In Kingdom, open **Setup → Connections → Connect Google Calendar** and allow read-only access.
+
+Calendar access is separate from sign-in, read-only (`calendar.events.readonly`), and uses the same redirect URI, so nothing else changes in Google Cloud. Tokens are encrypted with AES-256-GCM. **Disconnect** revokes access with Google and deletes the tokens. Events are read live from Google and never stored; only meetings you confirm as being with someone are saved, as a conversation on that person's profile.
+
 ## Run it on your computer
 
 ```bash
@@ -87,7 +95,6 @@ npm run typecheck
 
 ## What's next
 
-- **Phase 2, Google Calendar:** a separate read-only connection with encrypted tokens and a Disconnect button. Real events on the Week tab, free and busy evenings, meetings matched to people in your network (with your confirmation), and calendar facts for the coach.
 - **Phase 3:** suggested time blocks and an overload check, without writing to your calendar.
 - **Phase 4, Gmail:** you pick labels and senders; you approve each summary.
 - **Phase 5, LinkedIn:** import `Connections.csv` from LinkedIn's own data export; no scraping.

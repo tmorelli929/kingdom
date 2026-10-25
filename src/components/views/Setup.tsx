@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { uid } from "@/lib/life/defaults";
 import { METRIC_LABEL } from "@/lib/life/network";
 import type { CoachAccess, NetworkMetric } from "@/lib/life/types";
@@ -8,8 +8,14 @@ import { useApp } from "../App";
 import { Icon, ICON_CHOICES } from "../ui";
 import { ImportCard } from "./Onboarding";
 
+const CAL_RESULT: Record<string, string> = {
+  connected: "Google Calendar connected.",
+  denied: "Calendar wasn't connected: Kingdom needs the read-only calendar permission. Try again and leave it checked.",
+  cancelled: "Calendar connection was cancelled.",
+  failed: "Google didn't finish connecting the calendar. Try again.",
+};
+
 const CONNECTIONS = [
-  { name: "Google Calendar", icon: "cal", status: "Phase 2", text: "Read-only. Shows your real week, finds free evenings and overloaded days, links meetings to people in your network after you confirm." },
   { name: "Gmail", icon: "chat", status: "Phase 4", text: "Read-only, limited to labels and senders you choose. You approve each summary before the coach sees it. Never sends email." },
   { name: "LinkedIn", icon: "people", status: "Manual", text: "LinkedIn doesn't let personal apps read connections, messages or analytics. Save profile URLs on each person now; a Connections.csv import from LinkedIn's own data export comes in Phase 5." },
   { name: "Health, finance, tasks, notes", icon: "pulse", status: "Later", text: "Each would be its own connector, added only if it earns its place." },
@@ -24,6 +30,21 @@ export default function Setup() {
   const [delStep, setDelStep] = useState(0);
   const [delText, setDelText] = useState("");
   const access = doc.coachAccess ?? { reflections: true, network: true, profile: true };
+  const [calConn, setCalConn] = useState<{ email: string; status: string } | null | undefined>(undefined);
+  const loadConn = () => api<{ calendar: { email: string; status: string } | null }>("/api/connections").then((r) => setCalConn(r.calendar)).catch(() => setCalConn(null));
+  useEffect(() => {
+    loadConn();
+    const q = new URLSearchParams(location.search).get("calendar");
+    if (q) {
+      toast(CAL_RESULT[q] ?? "Calendar connection finished.");
+      history.replaceState(null, "", "/#setup");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const disconnectCal = async () => {
+    try { await api("/api/connections", "DELETE", { provider: "calendar" }); setCalConn(null); toast("Google Calendar disconnected and access revoked."); }
+    catch (e) { toast(e instanceof Error ? e.message : "Couldn't disconnect."); }
+  };
   const setAccess = (k: keyof CoachAccess, v: boolean) => mutate((d) => { d.coachAccess = { ...access, [k]: v }; });
 
   return (
@@ -43,10 +64,29 @@ export default function Setup() {
         <label className="toggle"><input type="checkbox" checked={access.profile} onChange={(e) => setAccess("profile", e.target.checked)} />About you, principles and anchor verse</label>
         <label className="toggle"><input type="checkbox" checked={access.reflections} onChange={(e) => setAccess("reflections", e.target.checked)} />Weekly reflections (last three weeks)</label>
         <label className="toggle"><input type="checkbox" checked={access.network} onChange={(e) => setAccess("network", e.target.checked)} />Network: people, conversation notes and commitments</label>
+        <label className="toggle"><input type="checkbox" checked={access.calendar !== false} onChange={(e) => setAccess("calendar", e.target.checked)} />Google Calendar: event titles and times for this week and next</label>
       </section>
 
       <section className="card">
-        <div className="card-head"><h2>Connections</h2><span className="small muted">Nothing is connected yet</span></div>
+        <div className="card-head"><h2>Connections</h2></div>
+        <div className="conn">
+          <span className="avatar"><Icon name="cal" /></span>
+          <div style={{ minWidth: 0 }}>
+            <b>Google Calendar</b>
+            <p className="small muted">
+              {calConn?.status === "ok" ? `Connected${calConn.email ? ` as ${calConn.email}` : ""}. Read-only: Kingdom sees event titles, times and attendees on your primary calendar, never descriptions, and never changes anything.`
+                : calConn?.status === "expired" ? "Google stopped Kingdom's access. Reconnect to keep your week up to date."
+                : "Read-only. Shows your real week, finds free evenings and overloaded days, and suggests linking meetings to people in your network (you confirm each one). Use your personal Google account."}
+            </p>
+            {calConn !== undefined && (
+              <div className="btns" style={{ marginTop: 6 }}>
+                {calConn?.status !== "ok" && <a className="btn primary" href="/api/connections/calendar/start">{calConn ? "Reconnect" : "Connect Google Calendar"}</a>}
+                {calConn && <button className="btn ghost" onClick={disconnectCal}>Disconnect</button>}
+              </div>
+            )}
+          </div>
+          <span className={`pill ${calConn?.status === "ok" ? "good" : calConn ? "warn" : "info"}`}>{calConn?.status === "ok" ? "CONNECTED" : calConn ? "EXPIRED" : "OFF"}</span>
+        </div>
         {CONNECTIONS.map((c) => (
           <div className="conn" key={c.name}>
             <span className="avatar"><Icon name={c.icon} /></span>

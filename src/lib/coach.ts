@@ -1,4 +1,5 @@
-import { addDays, daysBetween, fmtShort, weekOf } from "./life/dates";
+import { addDays, daysBetween, DOW, fmtShort, weekDays, weekOf } from "./life/dates";
+import { fmtHours, fmtTime, summarizeDay, type CalEvent } from "./life/calendar";
 import {
   lastInteraction, metricCount, METRIC_LABEL, needsTakeaways, openCommitments, reconnectList, upcomingMeetings,
   networkXp, type NetworkData, type Person,
@@ -13,7 +14,7 @@ How you work:
 - Ground every claim in the data you are given. The data is labeled by source: [ENTERED] is what he typed into Kingdom, [REFLECTION] is his own reflection writing, [CONNECTED] is from connected accounts. When you infer something that isn't stated, say it's your read ("My read:"). If the data doesn't cover something, say so instead of guessing.
 - Don't make assumptions about his marriage, spiritual life or emotional state beyond what he wrote. Never judge or score his spiritual maturity.
 - Relationships outrank achievement. If career or entrepreneurship is strong while faith, marriage, health or rest is thin, say so plainly. Career ambition must not crowd out everything else.
-- Plan realistically. Prefer protecting time for what matters over adding tasks. Suggest specific days, times and people.
+- Plan realistically. Prefer protecting time for what matters over adding tasks. Suggest specific days, times and people. When his calendar is connected, use it: name free evenings, flag overloaded days, and check whether his priorities actually have time on the calendar. Don't speculate about what a work meeting is about.
 - Relationships are about investing in people, not extracting value. When helping with networking, focus on genuine interest, follow-through and service. Never rank people by status or usefulness.
 - If asked to draft a message, write it in his voice: warm, brief, plain. Kingdom never sends messages; he sends them himself.
 - Kingdom is personal. Never ask for or use information from his employer's internal systems, customers or confidential data.
@@ -52,12 +53,33 @@ function mentioned(people: Person[], message: string) {
 
 // Builds the coach's view of his life. Only what the coach-access settings allow is included,
 // and people marked private never appear.
-export function buildContext(doc: LifeDoc, net: NetworkData, today: string, localTime: string, message: string) {
+export type CalendarContext = { status: "ok"; events: CalEvent[] } | { status: "none" | "expired" | "error" | "hidden" };
+
+// One line per day: how full it is, whether the evening is open, and what's on it.
+function calendarLines(events: CalEvent[], today: string, wk: string) {
+  const days = [...weekDays(wk), ...Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))].filter((d, i, a) => a.indexOf(d) === i);
+  return days.map((d) => {
+    const s = summarizeDay(events, d);
+    const list = events.filter((e) => e.date === d).slice(0, 12)
+      .map((e) => `${e.allDay ? "all day" : `${fmtTime(e.start!)}-${fmtTime(e.end!)}`} ${e.title.slice(0, 80)}${e.free ? " (marked free)" : ""}`);
+    const dow = DOW[(new Date(`${d}T12:00:00`).getDay() + 6) % 7];
+    const when = d < today ? "past" : d === today ? "TODAY" : "upcoming";
+    return `- ${dow} ${d} (${when}): ${s.count} events, ${fmtHours(s.busyMinutes)} booked, evening ${s.eveningFree ? "free" : "booked"}${s.overloaded ? ", OVERLOADED" : ""}.${list.length ? " " + list.join("; ") : ""}`;
+  });
+}
+
+export function buildContext(doc: LifeDoc, net: NetworkData, today: string, localTime: string, message: string, cal: CalendarContext = { status: "none" }) {
   const wk = weekOf(today);
   const out: string[] = [];
   const access = doc.coachAccess ?? { reflections: true, network: true, profile: true };
   out.push(`NOW: ${localTime}. Today is ${today}. This week started ${wk}.`);
-  out.push("[CONNECTED] No accounts are connected yet. Calendar and email information below is only what he typed.");
+  if (cal.status === "ok") {
+    out.push(`[CONNECTED] GOOGLE CALENDAR (his personal calendar, read-only; evenings are 6pm-9:30pm), this week and the next 7 days:`);
+    out.push(...calendarLines(cal.events, today, wk));
+  } else {
+    const why = { none: "Google Calendar isn't connected", expired: "Google Calendar access expired and needs reconnecting in Setup", error: "Google Calendar couldn't be reached just now", hidden: "He chose not to share his calendar with the coach" }[cal.status];
+    out.push(`[CONNECTED] ${why}. Any schedule information below is only what he typed.`);
+  }
 
   if (access.profile) {
     out.push(`\n[ENTERED] ABOUT HIM: ${doc.about}`);
