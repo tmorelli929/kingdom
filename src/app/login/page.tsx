@@ -16,8 +16,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
     <main className="login">
       <div className="card">
         <span className="brand">KINGDOM</span>
-        <h1 style={{ fontSize: 26 }}>Seek first the kingdom.</h1>
-        <p className="muted">Your private dashboard for living according to what matters most.</p>
+        <h1 style={{ fontSize: 26 }}>Habits, calendar and people.</h1>
+        <p className="muted">Your private dashboard for the things that matter most.</p>
         {error && <p style={{ color: "var(--warn)" }}>{ERRORS[error] ?? "Sign-in failed. Try again."}</p>}
         <a className="btn primary" href="/api/auth/google" style={{ justifyContent: "center" }}>Continue with Google</a>
         {dev && <a className="btn ghost" href="/api/auth/dev-login" style={{ justifyContent: "center" }}>Local dev sign-in</a>}

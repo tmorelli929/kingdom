@@ -18,7 +18,7 @@ export function CalendarWeek({ days }: { days: string[] }) {
   if (cal.state === "off") return (
     <section className="card">
       <div className="card-head"><h2>Your calendar</h2><span className="pill info">NOT CONNECTED</span></div>
-      <p className="small muted">Connect Google Calendar (read-only) to see how your week is really shaped, which evenings are open, and which days are overloaded.</p>
+      <p className="small muted">Connect Google Calendar (read-only) to see your week here: how full each day is, which evenings are open, and which meetings are with people in your network.</p>
       <div className="btns"><button className="btn" onClick={() => go("setup")}>Connect in Setup</button></div>
     </section>
   );
@@ -44,9 +44,9 @@ export function CalendarWeek({ days }: { days: string[] }) {
 
   return (
     <section className="card">
-      <div className="card-head"><h2>Your calendar</h2><span className="pill good">GOOGLE CALENDAR</span></div>
+      <div className="card-head"><h2>Your week</h2><span className="pill good">GOOGLE CALENDAR</span></div>
       <p className="small muted">
-        {openEvenings.length ? `Open evenings left: ${openEvenings.join(", ")}.` : "No open evenings left this week."}
+        {days[6] < today ? "" : openEvenings.length ? `Open evenings: ${openEvenings.join(", ")}.` : "No open evenings left this week."}
         {heavy.length ? ` Overloaded: ${heavy.join(", ")}.` : ""}
       </p>
       <div className="calweek">
@@ -57,7 +57,7 @@ export function CalendarWeek({ days }: { days: string[] }) {
             <div key={d} className={`calday${d === today ? " today" : ""}${d < today ? " past" : ""}`}>
               <div className="calday-head">
                 <b>{DOW[i]}</b> <span className="faint small">{fmtShort(d)}</span>
-                <span className="small muted">{s.count ? `${fmtHours(s.busyMinutes)} booked` : "Clear"}</span>
+                <span className="small muted">{s.busyMinutes ? `${fmtHours(s.busyMinutes)} booked` : "Clear"}</span>
                 <span className="calflags">
                   {s.overloaded && <span className="pill warn">HEAVY</span>}
                   {s.eveningFree && <span className="pill good">EVENING FREE</span>}
@@ -90,22 +90,6 @@ export function CalendarWeek({ days }: { days: string[] }) {
           ))}
         </div>
       )}
-    </section>
-  );
-}
-
-// Today's events, compact, for the home screen. Renders nothing when the calendar isn't connected.
-export function CalendarToday() {
-  const { today } = useApp();
-  const { cal } = useCalendar(today, 1);
-  if (cal.state !== "ok") return null;
-  const s = summarizeDay(cal.events, today);
-  const evs = cal.events.filter((e) => e.date === today);
-  return (
-    <section className="card">
-      <div className="card-head"><h2>Today&apos;s calendar</h2><span className="small muted">{s.count ? `${fmtHours(s.busyMinutes)} booked` : "Clear"}{s.eveningFree ? " · evening free" : ""}</span></div>
-      {evs.length ? evs.map((e) => <div key={e.id} className={`calev${e.free ? " free" : ""}`}><span className="num faint small">{timeLabel(e)}</span> <span>{e.title}</span></div>)
-        : <p className="small muted">Nothing on the calendar today.</p>}
     </section>
   );
 }

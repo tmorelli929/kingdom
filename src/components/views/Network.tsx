@@ -55,7 +55,7 @@ function AddPerson({ onClose }: { onClose: (id?: string) => void }) {
       <div className="card-head"><h2>Add someone you just met</h2><button type="button" className="btn ghost sm" onClick={() => onClose()}>Cancel</button></div>
       <div className="fields">
         <div className="field"><label htmlFor="np-name">Name</label><input className="in" id="np-name" required value={f.name} onChange={(e) => set("name", e.target.value)} autoFocus /></div>
-        <div className="field"><label htmlFor="np-where">Where you met</label><input className="in" id="np-where" value={f.metWhere} onChange={(e) => set("metWhere", e.target.value)} placeholder="e.g. Church small group, Raleigh tech meetup" /></div>
+        <div className="field"><label htmlFor="np-where">Where you met</label><input className="in" id="np-where" value={f.metWhere} onChange={(e) => set("metWhere", e.target.value)} placeholder="e.g. Friend's dinner, Raleigh tech meetup" /></div>
         <div className="field"><label htmlFor="np-when">When</label><input className="in" id="np-when" type="date" value={f.metOn} onChange={(e) => set("metOn", e.target.value)} /></div>
       </div>
       <div className="field"><span className="lab">Categories</span>
@@ -112,10 +112,6 @@ function PersonView({ id }: { id: string }) {
             <p className="muted small">{[p.title, p.organization].filter(Boolean).join(" · ") || "No title yet"}{last ? ` · last spoke ${when(last.occurredOn, today).toLowerCase()}` : ""}</p>
           </div>
           {p.linkedinUrl && <a className="btn ghost sm" href={p.linkedinUrl} target="_blank" rel="noopener noreferrer"><Icon name="link" />LinkedIn</a>}
-        </div>
-        <div className="btns">
-          <button className="btn sm" onClick={() => go("coach", { ask: `Help me prepare for my next conversation with ${p.name}. What did we discuss last time, and what should I follow up on?` })}>Prepare me</button>
-          <button className="btn sm" onClick={() => go("coach", { ask: `Draft a short, casual follow-up message to ${p.name} based on our last conversation.` })}>Draft a follow-up</button>
         </div>
         <div className="field"><span className="lab">Categories</span>
           <div className="chips">{doc.networkCategories.map((c) => <button key={c} className="chip" aria-pressed={p.categories.includes(c)}
@@ -268,7 +264,7 @@ export default function Network() {
         <section className="card">
           <div className="card-head"><h2>Coming up</h2></div>
           {up.length ? up.slice(0, 6).map((i) => { const p = name(i); return p && <PersonRow key={i.id} p={p} sub={`${when(i.occurredOn, today)} · ${i.kind}`}
-            right={<button className="btn ghost sm" onClick={() => go("coach", { ask: `Help me prepare for my ${i.kind} with ${p.name} ${when(i.occurredOn, today).toLowerCase()}.` })}>Prepare</button>} />; })
+ />; })
             : <div className="empty">Plan a coffee or call from someone&apos;s profile by logging it with a future date.</div>}
           {nt.length > 0 && <>
             <h3 style={{ marginTop: 8 }}>Write down takeaways</h3>
