@@ -214,3 +214,11 @@ textarea.in { resize: vertical; min-height: 70px; line-height: 1.5 }
 .calev { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 14px; overflow-wrap: anywhere }
 .calev .num { flex: 0 0 auto; min-width: 92px }
 .calev.free { opacity: .6 }
+
+/* Habits grid: fits a phone without sideways scrolling */
+.wk table { min-width: 0 }
+.wk td:first-child { max-width: 140px; overflow-wrap: anywhere; padding-right: 8px }
+button.cell { padding: 0; cursor: pointer }
+button.cell:disabled { cursor: default }
+button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px }
+@media (max-width: 420px) { .wk th, .wk td { padding: 6px 2px } .cell { width: 20px; height: 20px } }

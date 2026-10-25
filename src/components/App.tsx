@@ -7,17 +7,16 @@ import type { LifeDoc } from "@/lib/life/types";
 import { api, ApiError, tz } from "./api";
 import { Icon } from "./ui";
 import Onboarding from "./views/Onboarding";
-import Today from "./views/Today";
-import Week from "./views/Week";
+import Habits from "./views/Habits";
+import CalendarView from "./views/CalendarView";
 import Network from "./views/Network";
-import Areas from "./views/Areas";
-import Coach from "./views/Coach";
 import Setup from "./views/Setup";
 
-export type Tab = "today" | "week" | "network" | "areas" | "coach" | "setup";
+// Today, Week, Areas and Coach views still exist (src/components/views) but are hidden for now:
+// Thomas wants just habits, calendar and networking. Their data stays in the life doc.
+export type Tab = "habits" | "calendar" | "network" | "setup";
 const TABS: [Tab, string, string][] = [
-  ["today", "Today", "sun"], ["week", "Week", "cal"], ["network", "Network", "people"],
-  ["areas", "Areas", "grid"], ["coach", "Coach", "chat"], ["setup", "Setup", "sliders"],
+  ["habits", "Habits", "check"], ["calendar", "Calendar", "cal"], ["network", "Network", "people"], ["setup", "Setup", "sliders"],
 ];
 
 type Ctx = {
@@ -48,7 +47,7 @@ export default function App({ email }: { email: string }) {
   const [doc, setDoc] = useState<LifeDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [net, setNet] = useState<NetworkData>(EMPTY_NET);
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>("habits");
   const [person, setPerson] = useState<string | null>(null);
   const [area, setArea] = useState<string | null>(null);
   const [pendingAsk, setPendingAsk] = useState<string | null>(null);
@@ -179,11 +178,9 @@ export default function App({ email }: { email: string }) {
       </header>
       <main className="wrap">
         <div className="view">
-          {tab === "today" && <Today />}
-          {tab === "week" && <Week />}
+          {tab === "habits" && <Habits />}
+          {tab === "calendar" && <CalendarView />}
           {tab === "network" && <Network />}
-          {tab === "areas" && <Areas />}
-          {tab === "coach" && <Coach />}
           {tab === "setup" && <Setup />}
         </div>
       </main>

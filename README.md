@@ -1,6 +1,6 @@
 # Kingdom
 
-A private dashboard for living according to what matters most: daily intentions and quests, weekly missions and reflection, seven life areas that level up, a personal network (relationships, conversations, commitments), and an AI coach that sees all of it.
+A private dashboard for three things: daily habits, your real week from Google Calendar, and the people you want to stay close to. (Life areas, missions, reflections and the AI coach from V1 are hidden for now; their data is kept and their code is in git history.)
 
 This is V2 through Phase 2: the hosted foundation plus a read-only Google Calendar connection. Weekly planning (Phase 3), Gmail (Phase 4) and LinkedIn import (Phase 5) come next.
 
