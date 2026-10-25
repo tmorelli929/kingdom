@@ -86,6 +86,6 @@ export function defaultDoc(today: string): LifeDoc {
       { id: uid(), title: "Reconnect with existing relationships", metric: "reconnects", target: 3, period: "month", areaId: "marriage" },
       { id: uid(), title: "Attend a community event", metric: "events", target: 1, period: "month", areaId: "marriage" },
     ],
-    coachAccess: { reflections: true, network: true, profile: true },
+    coachAccess: { reflections: true, network: true, profile: true, calendar: true },
   };
 }

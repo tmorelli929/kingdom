@@ -6,6 +6,7 @@ type Env = {
   AUTH_GOOGLE_SECRET: string;
   ALLOWED_EMAILS: string[];
   ANTHROPIC_API_KEY: string;
+  TOKEN_ENCRYPTION_KEY: string;
   DEV_LOGIN: boolean;
 };
 
@@ -21,6 +22,7 @@ export function env(): Env {
     AUTH_GOOGLE_SECRET: get("AUTH_GOOGLE_SECRET"),
     ALLOWED_EMAILS: get("ALLOWED_EMAILS").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     ANTHROPIC_API_KEY: get("ANTHROPIC_API_KEY"),
+    TOKEN_ENCRYPTION_KEY: get("TOKEN_ENCRYPTION_KEY"),
     // Never honored in a production build.
     DEV_LOGIN: process.env.NODE_ENV !== "production" && get("DEV_LOGIN") === "1",
   };

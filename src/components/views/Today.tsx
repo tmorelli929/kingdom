@@ -7,6 +7,7 @@ import type { LifeDoc } from "@/lib/life/types";
 import { api, streamCoach } from "../api";
 import { useApp } from "../App";
 import { Bar, Check, Icon, Md, pct, popXP, RingSvg } from "../ui";
+import { CalendarToday } from "./CalendarCard";
 
 const TONE: Record<string, string> = { warn: "var(--warn)", info: "var(--blue)", gold: "var(--gold)", good: "var(--green)" };
 
@@ -167,6 +168,7 @@ export default function Today() {
           </div>
         </section>
       </div>
+      <CalendarToday />
       <PeopleToday />
       <section className="card"><div className="card-head"><h2>This week&apos;s missions</h2></div><Missions /></section>
       <section className="card">

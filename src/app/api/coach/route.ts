@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { buildContext, COACH_SYSTEM } from "@/lib/coach";
+import { buildContext, COACH_SYSTEM, type CalendarContext } from "@/lib/coach";
+import { CalendarExpired, fetchEvents, getConnection } from "@/lib/google-calendar";
 import { env } from "@/lib/env";
 import { authed, fail, json, readJson } from "@/lib/http";
-import { timeIn, todayIn } from "@/lib/life/dates";
+import { timeIn, todayIn, weekOf } from "@/lib/life/dates";
 import { looksLikeLifeDoc } from "@/lib/life/migrate";
 import { loadNetwork } from "@/lib/network-db";
 
@@ -46,7 +47,7 @@ export const POST = authed(async (req, user) => {
   const [life] = await db.select().from(schema.lifeDocs).where(eq(schema.lifeDocs.userId, user.id)).limit(1);
   if (!life || !looksLikeLifeDoc(life.data)) return fail(400, "Set up your dashboard first.");
   const today = todayIn(body.tz);
-  const context = buildContext(life.data, await loadNetwork(user.id), today, timeIn(body.tz), message);
+  const context = buildContext(life.data, await loadNetwork(user.id), today, timeIn(body.tz), message, await calendarFor(user.id, life.data.coachAccess?.calendar !== false, today, body.tz));
 
   const history = mode === "chat"
     ? (await db
@@ -119,3 +120,19 @@ export const POST = authed(async (req, user) => {
   });
   return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
 });
+
+// This week and the next 7 days of calendar, if connected and shared. A calendar problem never blocks the coach.
+async function calendarFor(userId: string, allowed: boolean, today: string, tz?: string): Promise<CalendarContext> {
+  const c = await getConnection(userId);
+  if (!c) return { status: "none" };
+  if (!allowed) return { status: "hidden" };
+  if (c.status !== "ok") return { status: "expired" };
+  const zone = tz || "UTC";
+  try { new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { return { status: "error" }; }
+  const from = weekOf(today);
+  try {
+    return { status: "ok", events: await fetchEvents(c, from, 14, zone) };
+  } catch (e) {
+    return { status: e instanceof CalendarExpired ? "expired" : "error" };
+  }
+}

@@ -50,7 +50,7 @@ const toPerson = (r: typeof schema.people.$inferSelect): Person => ({
   addedOn: r.createdAt.toISOString().slice(0, 10),
 });
 const toInteraction = (r: typeof schema.interactions.$inferSelect): Interaction => ({
-  id: r.id, personId: r.personId, occurredOn: r.occurredOn, kind: r.kind, summary: r.summary,
+  id: r.id, personId: r.personId, occurredOn: r.occurredOn, kind: r.kind, summary: r.summary, sourceEventId: r.sourceEventId,
 });
 const toCommitment = (r: typeof schema.commitments.$inferSelect): Commitment => ({
   id: r.id, personId: r.personId, text: r.text, dueOn: r.dueOn, doneOn: r.doneOn,

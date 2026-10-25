@@ -18,7 +18,7 @@ export type Person = {
   aiAccess: boolean;
   addedOn: string; // date the profile was created
 };
-export type Interaction = { id: string; personId: string; occurredOn: string; kind: string; summary: string };
+export type Interaction = { id: string; personId: string; occurredOn: string; kind: string; summary: string; sourceEventId?: string | null };
 export type Commitment = { id: string; personId: string; text: string; dueOn: string | null; doneOn: string | null };
 export type NetworkData = { people: Person[]; interactions: Interaction[]; commitments: Commitment[] };
 
