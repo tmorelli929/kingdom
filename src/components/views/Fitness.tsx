@@ -22,7 +22,7 @@ export default function Fitness({ onOpen }: { onOpen: (id: string) => void }) {
   const [sub, setSub] = useState<Sub>("today");
   return (
     <>
-      <div className="sec-head"><h2 className="sec-title">Fitness</h2></div>
+      <div className="sec-head"><h2 className="sec-title">Training</h2></div>
       <nav className="subtabs" aria-label="Fitness sections">
         {SUBS.map(([k, label]) => <button key={k} aria-current={sub === k ? "page" : undefined} onClick={() => setSub(k)}>{label}</button>)}
       </nav>

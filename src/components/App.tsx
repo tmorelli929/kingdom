@@ -8,13 +8,16 @@ import { api, ApiError, tz } from "./api";
 import { Icon } from "./ui";
 import Onboarding from "./views/Onboarding";
 import Dashboard from "./views/Dashboard";
+import { FitnessProvider } from "./fitness";
 import Setup from "./views/Setup";
 
-// Two pages: the dashboard (calendar, fitness, habits and network on one page) and settings.
-// `go` still takes a section name and scrolls the dashboard to it.
-export type Tab = "calendar" | "habits" | "network" | "fitness" | "setup";
-type Page = "home" | "setup";
-const PAGES: [Page, string, string][] = [["home", "Dashboard", "cal"], ["setup", "Settings", "sliders"]];
+// Today holds everything for the day; the other pages are for going deeper.
+// `go` takes a section name ("calendar" is Today, "network" is People).
+export type Tab = "today" | "calendar" | "habits" | "network" | "fitness" | "setup";
+export type Page = "today" | "fitness" | "habits" | "people" | "setup";
+const PAGES: [Page, string, string][] = [["today", "Today", "sun"], ["fitness", "Training", "dumbbell"], ["habits", "Habits", "check"], ["people", "People", "people"], ["setup", "Settings", "sliders"]];
+const PAGE_FOR: Record<Tab, Page> = { today: "today", calendar: "today", habits: "habits", network: "people", fitness: "fitness", setup: "setup" };
+const pageFromHash = (): Page => { const h = location.hash.slice(1); return PAGES.some(([k]) => k === h) ? (h as Page) : "today"; };
 
 type Ctx = {
   doc: LifeDoc;
@@ -44,7 +47,8 @@ export default function App({ email }: { email: string }) {
   const [doc, setDoc] = useState<LifeDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [net, setNet] = useState<NetworkData>(EMPTY_NET);
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>("today");
+  const [navN, setNavN] = useState(0); // bumps on every tab tap, so tapping a tab always closes an open workout
   const [person, setPerson] = useState<string | null>(null);
   const [area, setArea] = useState<string | null>(null);
   const [pendingAsk, setPendingAsk] = useState<string | null>(null);
@@ -126,7 +130,7 @@ export default function App({ email }: { email: string }) {
     // If Gmail is connected and hasn't been checked in the last hour, refresh last-contact dates quietly.
     api<{ updated?: number }>("/api/connections/gmail/sync", "POST", { tz: tz(), ifStale: true })
       .then((r) => { if (r.updated) reloadNet(); }).catch(() => { /* shown in Settings */ });
-    if (location.hash === "#setup") setPage("setup");
+    setPage(pageFromHash());
   }, [load, reloadNet]);
 
   // Pick up changes from another device when this one comes back into view.
@@ -147,14 +151,14 @@ export default function App({ email }: { email: string }) {
   }, [replaceDoc, reloadNet, flush]);
 
   const go = useCallback<Ctx["go"]>((t, opts) => {
-    const p: Page = t === "setup" ? "setup" : "home";
+    const p = PAGE_FOR[t];
     setPage(p);
+    setNavN((n) => n + 1);
     setPerson(opts?.person ?? null);
     setArea(opts?.area ?? null);
     if (opts?.ask) setPendingAsk(opts.ask);
-    try { history.replaceState(null, "", p === "setup" ? "#setup" : location.pathname); } catch { /* ignore */ }
-    if (p === "home" && !opts?.person) setTimeout(() => document.getElementById(`sec-${t}`)?.scrollIntoView({ block: "start" }), 0);
-    else window.scrollTo({ top: 0 });
+    try { history.replaceState(null, "", p === "today" ? location.pathname : `#${p}`); } catch { /* ignore */ }
+    window.scrollTo({ top: 0 });
   }, []);
 
   if (!loaded) return <main className="wrap"><p className="muted" style={{ paddingTop: 40 }}>Loading your dashboard…</p></main>;
@@ -170,7 +174,7 @@ export default function App({ email }: { email: string }) {
           <span className="spacer" />
           <nav className="tabs" aria-label="Sections">
             {PAGES.map(([k, label, ic]) => (
-              <button key={k} aria-current={page === k ? "page" : undefined} onClick={() => { setPage(k); setPerson(null); try { history.replaceState(null, "", k === "setup" ? "#setup" : location.pathname); } catch { /* ignore */ } window.scrollTo({ top: 0 }); }}>
+              <button key={k} aria-current={page === k ? "page" : undefined} onClick={() => go(k === "people" ? "network" : k)}>
                 <Icon name={ic} /><span>{label}</span>
               </button>
             ))}
@@ -179,7 +183,11 @@ export default function App({ email }: { email: string }) {
       </header>
       <main className="wrap">
         <div className="view">
-          {page === "home" ? <Dashboard /> : <Setup />}
+          {page === "setup" ? <Setup /> : (
+            <FitnessProvider fallback={<p className="muted" style={{ paddingTop: 24 }}>Loading…</p>}>
+              <Dashboard key={`${page}-${navN}`} page={page} />
+            </FitnessProvider>
+          )}
         </div>
       </main>
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}

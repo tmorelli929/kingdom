@@ -1,40 +1,22 @@
 "use client";
 import { useState } from "react";
-import { useApp } from "../App";
-import { FitnessProvider } from "../fitness";
-import Assistant from "./Assistant";
-import News from "./News";
-import Now from "./Now";
-import CalendarView from "./CalendarView";
+import { useApp, type Page } from "../App";
 import Fitness from "./Fitness";
 import Habits from "./Habits";
 import Network from "./Network";
+import Today from "./Today";
 import WorkoutMode from "./WorkoutMode";
 
-const SECTIONS: [string, string][] = [["calendar", "Calendar"], ["fitness", "Fitness"], ["habits", "Habits"], ["network", "Network"]];
-
-// Everything on one page. A workout in progress or a person's profile takes the full page,
-// and closing it returns to the section it came from.
-export default function Dashboard() {
+// One page of the app. A workout in progress takes the full page, and closing it returns here.
+export default function Dashboard({ page }: { page: Exclude<Page, "setup"> }) {
   const { person } = useApp();
   const [workout, setWorkout] = useState<string | null>(null);
-  const back = (sec: string) => setTimeout(() => document.getElementById(`sec-${sec}`)?.scrollIntoView({ block: "start" }), 0);
+  const open = (id: string) => { setWorkout(id); window.scrollTo({ top: 0 }); };
 
-  if (person) return <Network />;
-  return (
-    <FitnessProvider fallback={<p className="muted" style={{ paddingTop: 24 }}>Loading your dashboard…</p>}>
-      {workout ? <WorkoutMode id={workout} onClose={() => { setWorkout(null); back("fitness"); }} /> : (
-        <>
-          <nav className="jump" aria-label="Jump to section">
-            {SECTIONS.map(([k, label]) => <a key={k} href={`#sec-${k}`} onClick={(e) => { e.preventDefault(); document.getElementById(`sec-${k}`)?.scrollIntoView({ block: "start", behavior: "smooth" }); }}>{label}</a>)}
-          </nav>
-          <div className="sec"><Now onOpenWorkout={(id) => { setWorkout(id); window.scrollTo({ top: 0 }); }} /><Assistant /><News /></div>
-          <div id="sec-calendar" className="sec"><CalendarView onOpenWorkout={(id) => { setWorkout(id); window.scrollTo({ top: 0 }); }} /></div>
-          <div id="sec-fitness" className="sec"><Fitness onOpen={(id) => { setWorkout(id); window.scrollTo({ top: 0 }); }} /></div>
-          <div id="sec-habits" className="sec"><Habits /></div>
-          <div id="sec-network" className="sec"><Network /></div>
-        </>
-      )}
-    </FitnessProvider>
-  );
+  if (person) return <div className="page"><Network /></div>;
+  if (workout) return <WorkoutMode id={workout} onClose={() => { setWorkout(null); window.scrollTo({ top: 0 }); }} />;
+  if (page === "fitness") return <div className="page"><Fitness onOpen={open} /></div>;
+  if (page === "habits") return <div className="page"><Habits /></div>;
+  if (page === "people") return <div className="page"><Network /></div>;
+  return <Today onOpenWorkout={open} />;
 }

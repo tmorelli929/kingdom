@@ -225,12 +225,6 @@ export default function Setup() {
 
       <AiSpend />
 
-      <section className="card stack-s">
-        <h2>Assistant</h2>
-        <p className="small muted">The Ask box on your dashboard sends the data below to Anthropic&apos;s API to answer your question. It always sees your workouts and habits. People you mark private are never included.</p>
-        <label className="toggle"><input type="checkbox" checked={doc.coachAccess?.calendar !== false} onChange={(e) => mutate((d) => { d.coachAccess = { ...d.coachAccess, calendar: e.target.checked }; })} />Let it see my calendar events</label>
-        <label className="toggle"><input type="checkbox" checked={doc.coachAccess?.network !== false} onChange={(e) => mutate((d) => { d.coachAccess = { ...d.coachAccess, network: e.target.checked }; })} />Let it see my network and notes</label>
-      </section>
 
       <section className="card">
         <h2>Network</h2>

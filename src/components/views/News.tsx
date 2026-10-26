@@ -12,6 +12,8 @@ export default function News() {
   const [state, setState] = useState<{ configured: boolean; news: Stored | null; stale: Stored | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
   const hasTopics = (doc.newsTopics ?? []).some((t) => t.trim());
 
   const make = async () => {
@@ -42,15 +44,23 @@ export default function News() {
         <div className="stack-s">
           {!state.news && <p className="small faint">From {shown.date}.</p>}
           {shown.stories.map((s) => (
-            <a key={s.url} className="story" href={s.url} target="_blank" rel="noopener noreferrer">
-              <span className="eyebrow">{s.topic} · {s.source}</span>
-              <span className="story-title">{s.title}</span>
-              {s.summary && <span className="small">{s.summary}</span>}
-              <span className="small muted"><b className="why">Why it matters:</b> {s.why}</span>
-            </a>
+            <div key={s.url} className="story">
+              <button className="story-head" aria-expanded={open === s.url} onClick={() => setOpen(open === s.url ? null : s.url)}>
+                <span className="eyebrow">{s.topic} · {s.source}</span>
+                <span className="story-title">{s.title}</span>
+              </button>
+              {open === s.url && (
+                <div className="stack-s story-body">
+                  {s.summary && <p className="small">{s.summary}</p>}
+                  <p className="small muted"><b className="why">Why it matters:</b> {s.why}</p>
+                  <a className="small" href={s.url} target="_blank" rel="noopener noreferrer">Read at {s.source} →</a>
+                </div>
+              )}
+            </div>
           ))}
           {!shown.stories.length && <p className="small muted">Nothing new on your topics today.</p>}
-          {!!shown.quick?.length && (
+          {(!!shown.quick?.length || shown.bigIdea || shown.starter) && !more && <button className="btn ghost sm" onClick={() => setMore(true)}>More: quick headlines, big idea, conversation starter</button>}
+          {more && !!shown.quick?.length && (
             <div className="brief-extra">
               <span className="eyebrow">Worth knowing</span>
               {shown.quick.map((h) => (
@@ -58,8 +68,8 @@ export default function News() {
               ))}
             </div>
           )}
-          {shown.bigIdea && <div className="brief-extra"><span className="eyebrow">Big idea</span><p className="small">{shown.bigIdea}</p></div>}
-          {shown.starter && <div className="brief-extra"><span className="eyebrow">Conversation starter</span><p className="small">{shown.starter}</p></div>}
+          {more && shown.bigIdea && <div className="brief-extra"><span className="eyebrow">Big idea</span><p className="small">{shown.bigIdea}</p></div>}
+          {more && shown.starter && <div className="brief-extra"><span className="eyebrow">Conversation starter</span><p className="small">{shown.starter}</p></div>}
         </div>
       )}
     </section>

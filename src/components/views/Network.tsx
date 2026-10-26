@@ -104,7 +104,7 @@ function PersonView({ id }: { id: string }) {
 
   return (
     <>
-      <div><button className="btn ghost sm" onClick={() => go("network")}>← Dashboard</button></div>
+      <div><button className="btn ghost sm" onClick={() => go("network")}>← People</button></div>
       <section className="card">
         <div className="skill-top" style={{ gap: 14 }}>
           <span className="avatar" style={{ width: 52, height: 52, fontSize: 16 }}>{initials(p.name)}</span>
@@ -244,7 +244,7 @@ export default function Network() {
   return (
     <>
       <div className="sec-head">
-        <h2 className="sec-title">Network</h2>
+        <h2 className="sec-title">People</h2>
         <button className="btn primary sm" onClick={() => setAdding(true)}><Icon name="plus" />Add someone</button>
       </div>
 
