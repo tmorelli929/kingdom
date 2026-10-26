@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CalendarExpired } from "@/lib/google-calendar";
+import { NoKey, runDigest } from "@/lib/digest";
 import { getGmail, syncGmail } from "@/lib/gmail";
 import { authed, fail, json, readJson } from "@/lib/http";
 
@@ -14,7 +15,11 @@ export const POST = authed(async (req, user) => {
   let tz = "UTC";
   try { tz = new Intl.DateTimeFormat("en-US", { timeZone: body.tz }).resolvedOptions().timeZone; } catch { /* keep UTC */ }
   try {
-    return json({ connected: true, ...(await syncGmail(c, tz, { ifStale: body.ifStale })) });
+    const r = await syncGmail(c, tz, { ifStale: body.ifStale });
+    if (r.skipped === "fresh") return json({ connected: true, ...r });
+    let digest;
+    try { digest = await runDigest(c, tz); } catch (e) { if (e instanceof CalendarExpired || e instanceof NoKey) throw e; digest = { found: 0, suggested: 0, problem: "error" as const }; }
+    return json({ connected: true, ...r, digest });
   } catch (e) {
     if (e instanceof CalendarExpired) return json({ connected: true, expired: true });
     if (e instanceof Error && e.message.startsWith("Gmail returned")) return fail(502, e.message);

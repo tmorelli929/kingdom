@@ -7,6 +7,7 @@ import {
 } from "@/lib/life/network";
 import { api } from "../api";
 import { useApp } from "../App";
+import DigestSuggestions from "./DigestSuggestions";
 import { Bar, Check, Icon, initials, popXP } from "../ui";
 
 const when = (k: string, today: string) => {
@@ -246,6 +247,8 @@ export default function Network() {
         <h2 className="sec-title">Network</h2>
         <button className="btn primary sm" onClick={() => setAdding(true)}><Icon name="plus" />Add someone</button>
       </div>
+
+      <DigestSuggestions />
 
       <div className="stat-row">
         <div className="stat"><span className="eyebrow">People</span><b>{net.people.length}</b></div>

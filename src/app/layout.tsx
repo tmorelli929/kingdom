@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Kingdom",
   description: "A personal dashboard for living according to what matters most.",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "Kingdom", statusBarStyle: "black" },
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#111316" };
 

@@ -7,7 +7,8 @@ export const GMAIL = "gmail";
 // Kingdom asks for just From, To, Cc and Date, not even subjects.
 const METADATA_SCOPE = "https://www.googleapis.com/auth/gmail.metadata";
 export const GMAIL_SCOPES = ["openid", "email", METADATA_SCOPE];
-export const hasGmailScope = (scopes: string[]) => scopes.some((s) => s.endsWith("/gmail.metadata"));
+// The daily digest uses gmail.readonly instead (see digest.ts); either one is enough for last-contact dates.
+export const hasGmailScope = (scopes: string[]) => scopes.some((s) => s.endsWith("/gmail.metadata") || s.endsWith("/gmail.readonly"));
 
 // Work accounts are never connected (Cisco data stays out of Kingdom).
 export const isWorkAccount = (email: string) => /@(.+\.)?cisco\.com$/i.test(email);
@@ -106,8 +107,9 @@ export async function syncGmail(c: Connection, tz: string, opts: { ifStale?: boo
   return { scanned, updated };
 }
 
-// Revokes Gmail access, deletes the tokens, and clears every date that came from Gmail.
+// Revokes Gmail access, deletes the tokens, and clears every date and pending suggestion that came from Gmail.
 export async function disconnectGmail(c: Connection) {
   await disconnect(c);
+  await db.delete(schema.suggestions).where(and(eq(schema.suggestions.userId, c.userId), eq(schema.suggestions.status, "pending")));
   await db.update(schema.people).set({ lastEmailOn: null, lastEmailDir: null }).where(eq(schema.people.userId, c.userId));
 }
