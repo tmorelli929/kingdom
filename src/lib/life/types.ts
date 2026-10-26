@@ -16,7 +16,8 @@ export type Goal = { id: string; week: string; title: string; areaId: string; ta
 export type Milestone = { id: string; areaId: string; title: string; done: boolean };
 export type Priority = { t: string; d: boolean };
 // read: the chapter a reading-plan habit covered that day. skipped: habits he chose to skip that day.
-export type Day = { intention: string; priorities: Priority[]; done: Record<string, boolean>; read?: Record<string, string>; skipped?: Record<string, boolean> };
+// verse: the verse he picked from that day's reading as his verse of the day.
+export type Day = { intention: string; priorities: Priority[]; done: Record<string, boolean>; read?: Record<string, string>; skipped?: Record<string, boolean>; verse?: { ref: string; text: string } };
 export type AreaReflection = { rating?: number | null; note?: string };
 export type Reflection = { areas: Record<string, AreaReflection>; done?: boolean; wins?: string; next?: string };
 

@@ -211,15 +211,11 @@ export default function Setup() {
 
       <section className="card stack-s">
         <h2>News</h2>
-        <p className="small muted">A five-minute brief each morning: 5 stories with why they matter to you, plus 3 quick headlines, picked from Google News. One topic per line, most important first.</p>
+        <p className="small muted">The top headline for each topic each morning, from Google News. Free, no AI. One topic per line, most important first.</p>
         <textarea className="in" id="news-topics" rows={6} defaultValue={(doc.newsTopics ?? []).join("\n")} placeholder={"Enterprise tech sales\nAI in business\nRaleigh–Durham\nStrength training research"}
           onBlur={(e) => { const v = e.target.value.split("\n").map((t) => t.trim()).filter(Boolean).slice(0, 12); mutate((d) => { d.newsTopics = v; }); }} />
         <label className="field"><span className="lab">Where you live (for local news)</span>
           <input className="in" id="news-location" defaultValue={doc.newsLocation ?? ""} placeholder="Raleigh, NC" maxLength={100} onBlur={(e) => mutate((d) => { d.newsLocation = e.target.value.trim(); })} />
-        </label>
-        <label className="field"><span className="lab">What you&apos;re working toward (shapes &ldquo;why it matters&rdquo;)</span>
-          <textarea className="in" id="news-about" rows={3} defaultValue={doc.newsAbout ?? ""} maxLength={600} placeholder="Growing toward an account executive role in enterprise tech. Want to run a company someday. Long-term investor, not a trader."
-            onBlur={(e) => mutate((d) => { d.newsAbout = e.target.value.trim(); })} />
         </label>
       </section>
 

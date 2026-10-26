@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import Passage from "./Passage";
 import { fmtTime } from "@/lib/life/calendar";
 import { refLabel } from "@/lib/life/bible";
 import { doneOn, setDone, setSkipped } from "@/lib/life/habits";
 import { matchBlocks, splitByTime, type NowItem } from "@/lib/life/now";
-import { api } from "../api";
 import { useApp } from "../App";
 import type { CalendarState } from "../calendar";
 import { useFitness } from "../fitness";
@@ -60,7 +60,7 @@ export default function Now({ cal, onOpenWorkout }: { cal: CalendarState; onOpen
         return (
           <div key={i.key} className="stack-s">
             <div><span className="eyebrow">{i.event.title} · {span(i)}</span><div className="now-title">{label(i)}</div></div>
-            {h?.plan && <Passage key={refLabel(h.plan)} ref_={refLabel(h.plan)} />}
+            {h?.plan && <Passage key={refLabel(h.plan)} chapter={refLabel(h.plan)} />}
             <div className="btns">
               <button className="btn primary" onClick={() => complete(i)}>{i.kind === "workout" ? (workout?.status === "in_progress" ? "Continue workout" : "Start workout") : "Complete"}</button>
               <button className="btn ghost" onClick={() => skip(i)}>Skip</button>
@@ -82,23 +82,5 @@ export default function Now({ cal, onOpenWorkout }: { cal: CalendarState; onOpen
         </div>
       )}
     </section>
-  );
-}
-
-// One chapter of his reading plan, the text only.
-function Passage({ ref_ }: { ref_: string }) {
-  const [p, setP] = useState<{ translation: string; verses: { n: number; text: string }[] } | null>(null);
-  const [err, setErr] = useState("");
-  useEffect(() => {
-    api<{ translation: string; verses: { n: number; text: string }[] }>(`/api/reading?ref=${encodeURIComponent(ref_)}`).then(setP).catch((e) => setErr(e instanceof Error ? e.message : "Couldn't load it."));
-  }, [ref_]);
-  return (
-    <div className="passage">
-      <div className="passage-ref">{ref_}</div>
-      {err && <p className="small muted">{err}</p>}
-      {!p && !err && <p className="small muted">Loading…</p>}
-      {p && <p>{p.verses.map((v) => <span key={v.n}><sup>{v.n}</sup>{v.text} </span>)}</p>}
-      {p && <div className="small faint">{p.translation}</div>}
-    </div>
   );
 }
