@@ -16,6 +16,8 @@ const P: Record<string, ReactNode> = {
   chat: <path d="M5 5h14v10H10l-5 4z" />,
   people: <><circle cx="9" cy="8.5" r="3" /><path d="M3.5 19c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5" /><circle cx="16.5" cy="9.5" r="2.4" /><path d="M15.5 14.6c2.4-.3 4.4 1 5 3.9" /></>,
   sliders: <><path d="M5 6h9M18 6h1M5 12h3M12 12h7M5 18h11M20 18h-1" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></>,
+  check: <><rect x="4" y="4" width="16" height="16" rx="4" /><path d="M8.5 12.2l2.4 2.4 4.6-5" /></>,
+  dumbbell: <path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12" />,
   tick: <path d="M5 12.5l4.5 4.5L19 7.5" strokeWidth={3} />,
   x: <path d="M6 6l12 12M18 6L6 18" />,
   plus: <path d="M12 5v14M5 12h14" />,

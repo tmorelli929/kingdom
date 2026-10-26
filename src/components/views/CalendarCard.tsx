@@ -1,39 +1,32 @@
 "use client";
 import { useState } from "react";
 import { DOW, fmtShort } from "@/lib/life/dates";
-import { fmtHours, fmtTime, summarizeDay, type CalEvent } from "@/lib/life/calendar";
+import { fmtTime, summarizeDay, type CalEvent } from "@/lib/life/calendar";
 import { api } from "../api";
 import { useApp } from "../App";
 import { useCalendar } from "../calendar";
+import { useFitness } from "../fitness";
+import { STATUS_LABEL } from "./Fitness";
 
 const timeLabel = (e: CalEvent) => (e.allDay ? "All day" : `${fmtTime(e.start!)}–${fmtTime(e.end!)}`);
 
-// The real week from Google Calendar: how full each day is, open evenings, and meetings to link to people.
-export function CalendarWeek({ days }: { days: string[] }) {
+// The real week from Google Calendar with his planned workouts alongside. Workouts live in Kingdom;
+// nothing here writes to Google.
+export function CalendarWeek({ days, onOpenWorkout }: { days: string[]; onOpenWorkout: () => void }) {
   const { today, go, reloadNet, toast } = useApp();
+  const { data: fit } = useFitness();
   const { cal, reload } = useCalendar(days[0], days.length);
   const [busy, setBusy] = useState<string | null>(null);
 
-  if (cal.state === "loading") return <section className="card"><h2>Your calendar</h2><p className="small muted">Loading Google Calendar…</p></section>;
-  if (cal.state === "off") return (
-    <section className="card">
-      <div className="card-head"><h2>Your calendar</h2><span className="pill info">NOT CONNECTED</span></div>
-      <p className="small muted">Connect Google Calendar (read-only) to see your week here: how full each day is, which evenings are open, and which meetings are with people in your network.</p>
-      <div className="btns"><button className="btn" onClick={() => go("setup")}>Connect in Setup</button></div>
-    </section>
+  const workoutsOn = (d: string) => fit.workouts.filter((w) => w.date === d);
+  const header = (
+    <div className="card-head"><h2>Your week</h2>
+      {cal.state === "ok" && <span className="pill good">GOOGLE CALENDAR</span>}
+      {cal.state === "off" && <span className="pill info">CALENDAR NOT CONNECTED</span>}
+      {cal.state === "expired" && <span className="pill warn">RECONNECT</span>}
+    </div>
   );
-  if (cal.state === "expired") return (
-    <section className="card">
-      <div className="card-head"><h2>Your calendar</h2><span className="pill warn">RECONNECT</span></div>
-      <p className="small muted">Google stopped Kingdom&apos;s calendar access. Reconnect it to see your week again.</p>
-      <div className="btns"><a className="btn" href="/api/connections/calendar/start">Reconnect Google Calendar</a></div>
-    </section>
-  );
-  if (cal.state === "error") return <section className="card"><h2>Your calendar</h2><p className="small muted">{cal.message}</p><div className="btns"><button className="btn" onClick={reload}>Try again</button></div></section>;
-
-  const sums = days.map((d) => summarizeDay(cal.events, d));
-  const openEvenings = sums.filter((s) => s.date >= today && s.eveningFree).map((s) => DOW[days.indexOf(s.date)]);
-  const heavy = sums.filter((s) => s.overloaded).map((s) => DOW[days.indexOf(s.date)]);
+  const events = cal.state === "ok" ? cal.events : [];
 
   const act = async (id: string, fn: () => Promise<unknown>, msg: string) => {
     setBusy(id);
@@ -44,35 +37,51 @@ export function CalendarWeek({ days }: { days: string[] }) {
 
   return (
     <section className="card">
-      <div className="card-head"><h2>Your week</h2><span className="pill good">GOOGLE CALENDAR</span></div>
-      <p className="small muted">
-        {days[6] < today ? "" : openEvenings.length ? `Open evenings: ${openEvenings.join(", ")}.` : "No open evenings left this week."}
-        {heavy.length ? ` Overloaded: ${heavy.join(", ")}.` : ""}
-      </p>
+      {header}
+      {cal.state === "loading" && <p className="small muted">Loading Google Calendar…</p>}
+      {cal.state === "off" && <p className="small muted">Your workouts are shown below. <button className="linkish" style={{ color: "var(--gold)" }} onClick={() => go("setup")}>Connect Google Calendar</button> (read-only) to see your events alongside them.</p>}
+      {cal.state === "expired" && <p className="small muted">Google stopped Kingdom&apos;s calendar access. <a href="/api/connections/calendar/start">Reconnect Google Calendar</a>.</p>}
+      {cal.state === "error" && <p className="small muted">{cal.message} <button className="linkish" onClick={reload}>Try again</button></p>}
+      {cal.state === "ok" && cal.needsReconnectForList && (
+        <p className="small caution">Only your main calendar is being read. <a href="/api/connections/calendar/start">Reconnect once</a> to let Kingdom see your other calendars (holidays, birthdays, shared ones) and choose which to include.</p>
+      )}
+      {cal.state === "ok" && cal.problems.map((p) => <p key={p.calendar} className="small caution">{p.calendar}: {p.message}</p>)}
+
       <div className="calweek">
         {days.map((d, i) => {
-          const s = sums[i];
-          const evs = cal.events.filter((e) => e.date === d);
+          const s = summarizeDay(events, d);
+          const allDay = events.filter((e) => e.date === d && e.allDay);
+          const timed = events.filter((e) => e.date === d && !e.allDay);
+          const ws = workoutsOn(d);
           return (
             <div key={d} className={`calday${d === today ? " today" : ""}${d < today ? " past" : ""}`}>
               <div className="calday-head">
                 <b>{DOW[i]}</b> <span className="faint small">{fmtShort(d)}</span>
-                <span className="small muted">{s.busyMinutes ? `${fmtHours(s.busyMinutes)} booked` : "Clear"}</span>
-                <span className="calflags">
-                  {s.overloaded && <span className="pill warn">HEAVY</span>}
-                  {s.eveningFree && <span className="pill good">EVENING FREE</span>}
-                </span>
+                <span className="calflags">{cal.state === "ok" && s.eveningFree && d >= today && <span className="pill good">EVENING FREE</span>}</span>
               </div>
-              {evs.map((e) => (
-                <div key={e.id + e.date} className={`calev${e.free ? " free" : ""}`}>
-                  <span className="num faint small">{timeLabel(e)}</span> <span>{e.title}</span>
+              {allDay.map((e) => (
+                <div key={`${e.calendarId}-${e.id}`} className="allday" style={{ borderColor: e.color }} title={e.calendar}>
+                  <i className="dot" style={{ background: e.color }} />{e.title}{e.multiDay ? <span className="faint small"> · multi-day</span> : null}
                 </div>
               ))}
+              {ws.map((w) => (
+                <button key={w.id} className="calev workout-ev linkish" onClick={onOpenWorkout} title="Open in Fitness">
+                  <span className="num faint small">{w.kind === "lift" ? "Workout" : "Recovery"}</span>
+                  <span>{w.kind === "lift" ? `${w.title} · ${w.focus}` : `Light cardio ${w.cardioMin}–${w.cardioMax} min`} <span className="small faint">({STATUS_LABEL[w.status].toLowerCase()})</span></span>
+                </button>
+              ))}
+              {timed.map((e) => (
+                <div key={`${e.calendarId}-${e.id}-${e.start}`} className={`calev${e.free ? " free" : ""}`} title={e.calendar}>
+                  <span className="num faint small"><i className="dot" style={{ background: e.color }} /> {timeLabel(e)}</span> <span>{e.title}</span>
+                </div>
+              ))}
+              {!allDay.length && !timed.length && !ws.length && <div className="small faint">Nothing scheduled</div>}
             </div>
           );
         })}
       </div>
-      {cal.suggestions.length > 0 && (
+
+      {cal.state === "ok" && cal.suggestions.length > 0 && (
         <div className="stack-s" style={{ marginTop: 14 }}>
           <h3 style={{ fontSize: 15 }}>Meetings with people in your network?</h3>
           <p className="small muted">Nothing is linked until you confirm. Linking logs the meeting on their profile.</p>

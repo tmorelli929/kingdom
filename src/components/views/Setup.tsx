@@ -20,14 +20,23 @@ const CONNECTIONS = [
   { name: "LinkedIn", icon: "people", status: "Manual", text: "LinkedIn doesn't let personal apps read connections, messages or analytics. Save profile URLs on each person now; a Connections.csv import from LinkedIn's own data export comes in Phase 5." },
 ];
 
+type CalConn = {
+  email: string; status: string; lastSyncedAt: string | null; canList: boolean;
+  calendars: { id: string; name: string; color: string; primary: boolean; selected: boolean }[];
+};
+
 export default function Setup() {
   const { doc, mutate, replaceDoc, toast, email } = useApp();
   const [newCat, setNewCat] = useState("");
   const [newGoal, setNewGoal] = useState<{ title: string; metric: NetworkMetric; target: number; period: "week" | "month"; areaId: string }>({ title: "", metric: "conversations", target: 1, period: "month", areaId: "career" });
   const [delStep, setDelStep] = useState(0);
   const [delText, setDelText] = useState("");
-  const [calConn, setCalConn] = useState<{ email: string; status: string } | null | undefined>(undefined);
-  const loadConn = () => api<{ calendar: { email: string; status: string } | null }>("/api/connections").then((r) => setCalConn(r.calendar)).catch(() => setCalConn(null));
+  const [calConn, setCalConn] = useState<CalConn | null | undefined>(undefined);
+  const loadConn = () => api<{ calendar: CalConn | null }>("/api/connections").then((r) => setCalConn(r.calendar)).catch(() => setCalConn(null));
+  const toggleCal = async (id: string, on: boolean) => {
+    setCalConn((c) => c && { ...c, calendars: c.calendars.map((x) => (x.id === id ? { ...x, selected: on } : x)) });
+    try { await api("/api/connections", "PATCH", { calendars: { [id]: on } }); } catch (e) { toast(e instanceof Error ? e.message : "Not saved."); loadConn(); }
+  };
   useEffect(() => {
     loadConn();
     const q = new URLSearchParams(location.search).get("calendar");
@@ -53,10 +62,24 @@ export default function Setup() {
           <div style={{ minWidth: 0 }}>
             <b>Google Calendar</b>
             <p className="small muted">
-              {calConn?.status === "ok" ? `Connected${calConn.email ? ` as ${calConn.email}` : ""}. Read-only: Kingdom sees event titles, times and attendees on your primary calendar, never descriptions, and never changes anything.`
+              {calConn?.status === "ok" ? `Connected${calConn.email ? ` as ${calConn.email}` : ""}${calConn.lastSyncedAt ? `, last synced ${new Date(calConn.lastSyncedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}. Read-only: Kingdom reads event titles, times and attendees from the calendars you include, never descriptions, and never changes anything.`
                 : calConn?.status === "expired" ? "Google stopped Kingdom's access. Reconnect to keep your week up to date."
-                : "Read-only. Shows your real week, finds free evenings and overloaded days, and suggests linking meetings to people in your network (you confirm each one). Use your personal Google account."}
+                : "Read-only. Shows your real week next to your workouts, finds open evenings, and suggests linking meetings to people in your network (you confirm each one). Use your personal Google account."}
             </p>
+            {calConn?.status === "ok" && !calConn.canList && (
+              <p className="small caution">Kingdom can only read your main calendar right now. <a href="/api/connections/calendar/start">Reconnect once</a> and allow &quot;see the list of your calendars&quot; to include holidays, birthdays and shared calendars.</p>
+            )}
+            {calConn?.status === "ok" && calConn.calendars.length > 0 && (
+              <div className="cal-pick" role="group" aria-label="Calendars to include">
+                <span className="lab">Calendars to include</span>
+                {calConn.calendars.map((c) => (
+                  <label key={c.id} className="toggle small">
+                    <input type="checkbox" checked={c.selected} onChange={(e) => toggleCal(c.id, e.target.checked)} />
+                    <i className="dot" style={{ background: c.color }} />{c.name}{c.primary ? <span className="faint"> (main)</span> : null}
+                  </label>
+                ))}
+              </div>
+            )}
             {calConn !== undefined && (
               <div className="btns" style={{ marginTop: 6 }}>
                 {calConn?.status !== "ok" && <a className="btn primary" href="/api/connections/calendar/start">{calConn ? "Reconnect" : "Connect Google Calendar"}</a>}

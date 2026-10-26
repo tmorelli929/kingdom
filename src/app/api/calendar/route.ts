@@ -1,5 +1,5 @@
 import { suggestLinks } from "@/lib/life/calendar";
-import { CalendarExpired, fetchEvents, getConnection } from "@/lib/google-calendar";
+import { CalendarExpired, canListCalendars, fetchEvents, getConnection } from "@/lib/google-calendar";
 import { authed, fail, json } from "@/lib/http";
 import { loadNetwork } from "@/lib/network-db";
 
@@ -17,9 +17,9 @@ export const GET = authed(async (req, user) => {
   if (!c) return json({ connected: false });
   if (c.status !== "ok") return json({ connected: true, status: "expired", events: [], suggestions: [] });
   try {
-    const events = await fetchEvents(c, from, days, tz);
+    const { events, problems } = await fetchEvents(c, from, days, tz);
     const suggestions = suggestLinks(events, await loadNetwork(user.id), c.dismissed);
-    return json({ connected: true, status: "ok", email: c.accountEmail, events, suggestions });
+    return json({ connected: true, status: "ok", email: c.accountEmail, events, suggestions, problems, needsReconnectForList: !canListCalendars(c) });
   } catch (e) {
     if (e instanceof CalendarExpired) return json({ connected: true, status: "expired", events: [], suggestions: [] });
     throw e;

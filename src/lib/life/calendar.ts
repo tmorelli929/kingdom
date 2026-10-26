@@ -10,6 +10,10 @@ export type CalEvent = {
   allDay: boolean;
   free: boolean; // marked "free" in Google, so it doesn't count as busy
   attendees: { email: string; name: string }[];
+  calendarId?: string;
+  calendar?: string; // calendar name, e.g. "Holidays in United States"
+  color?: string;
+  multiDay?: boolean; // part of an event spanning more than one day
 };
 
 export const EVENING: [number, number] = [18 * 60, 21 * 60 + 30];

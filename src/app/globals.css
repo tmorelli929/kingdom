@@ -222,3 +222,54 @@ button.cell { padding: 0; cursor: pointer }
 button.cell:disabled { cursor: default }
 button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px }
 @media (max-width: 420px) { .wk th, .wk td { padding: 6px 2px } .cell { width: 20px; height: 20px } }
+
+/* Fitness */
+.subtabs { display: flex; gap: 4px; margin: 14px 0 4px; overflow-x: auto }
+.subtabs button { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; white-space: nowrap }
+.subtabs button[aria-current="page"] { color: var(--fg); background: var(--surface-2); border-color: transparent }
+.workout-title { font-size: clamp(24px, 6vw, 34px); letter-spacing: .01em; margin: 4px 0 }
+.workout-title .muted { font-size: .6em; letter-spacing: .06em }
+.today-workout { border-color: color-mix(in srgb, var(--gold) 40%, var(--line)) }
+.btn.big { padding: 14px 22px; font-size: 16px }
+.caution { color: var(--warn) }
+.weekstrip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px }
+.wday { display: grid; justify-items: center; gap: 4px; padding: 8px 2px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--fg); min-width: 0 }
+.wday b { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100% }
+.wday.today { border-color: var(--gold) }
+.wday:disabled { opacity: .5 }
+.dotmark { width: 8px; height: 8px; border-radius: 50%; background: var(--line) }
+.dotmark.completed { background: var(--green) }
+.dotmark.in_progress { background: var(--warn) }
+.dotmark.skipped { background: transparent; border: 1px solid var(--faint) }
+.linkish { background: none; border: 0; color: inherit; text-align: left; padding: 0; font: inherit; cursor: pointer; min-width: 0 }
+.row.sched.is-today { background: color-mix(in srgb, var(--gold) 8%, transparent) }
+.ex-card.complete { border-color: color-mix(in srgb, var(--green) 50%, var(--line)) }
+.ex-name { font-size: 17px; margin: 0 }
+.sugg { display: grid; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin: 8px 0 }
+.setline { display: grid; grid-template-columns: 28px 1fr 1fr 44px; gap: 8px; align-items: center; padding: 4px 0 }
+.setline .in { text-align: center; padding: 10px 6px; font-size: 16px }
+.setline.done .in { border-color: color-mix(in srgb, var(--green) 50%, transparent) }
+.setline.head { padding-bottom: 0 }
+.setline.head span { text-align: center }
+.setline.head span:first-child { text-align: left }
+.setline .check { width: 44px; height: 44px }
+.cardio-row { display: grid; grid-template-columns: 1fr 80px auto; gap: 8px; align-items: center }
+.rest-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; z-index: 7; display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--gold); border-radius: 999px; padding: 8px 10px 8px 18px; box-shadow: 0 8px 30px rgba(0,0,0,.35); font-weight: 700 }
+.rest-bar.done { border-color: var(--green) }
+@media (max-width: 760px) { .rest-bar { bottom: calc(76px + env(safe-area-inset-bottom, 0px)) } }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px }
+.stats > div { display: grid; gap: 2px; padding: 12px; border-radius: 10px; background: var(--surface-2) }
+.stats b { font-size: 22px }
+.filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
+@media (max-width: 520px) { .filters { grid-template-columns: 1fr } }
+.lib-row + .lib-row { border-top: 1px solid var(--line) }
+.btn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold) }
+.plan-row .num { white-space: nowrap }
+.in.need { border-color: var(--warn) }
+.card-head { flex-wrap: wrap; row-gap: 6px }
+.rest-bar .num { white-space: nowrap }
+.allday { font-size: 13px; padding: 4px 8px; margin: 3px 0; border-left: 3px solid; border-radius: 6px; background: var(--surface-2); overflow-wrap: anywhere }
+.allday .dot, .calev .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle }
+.workout-ev { width: 100%; color: var(--gold) }
+.workout-ev .num { color: var(--gold) }
+.cal-pick { display: grid; gap: 4px; margin-top: 10px } .cal-pick .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px }
