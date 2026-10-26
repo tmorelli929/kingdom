@@ -8,7 +8,6 @@ import { useApp } from "../App";
 import { useCalendar } from "../calendar";
 import { useFitness } from "../fitness";
 import { Check } from "../ui";
-import Assistant from "./Assistant";
 import CalendarView from "./CalendarView";
 import { STATUS_LABEL } from "./Fitness";
 import News from "./News";
@@ -32,7 +31,6 @@ export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) =
       <DayPlan cal={cal} onOpenWorkout={onOpenWorkout} />
       <News />
       <FollowUps />
-      <Assistant />
       <div className="sec"><CalendarView from={addDays(today, 1)} onOpenWorkout={onOpenWorkout} /></div>
     </div>
   );
