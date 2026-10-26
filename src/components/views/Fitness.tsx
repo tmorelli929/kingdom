@@ -8,8 +8,8 @@ import { fmtW, suggest } from "@/lib/fitness/progression";
 import type { Exercise, Workout } from "@/lib/fitness-db";
 import { api } from "../api";
 import { useApp } from "../App";
-import { FitnessProvider, useFitness } from "../fitness";
-import WorkoutMode, { CardioCard } from "./WorkoutMode";
+import { useFitness } from "../fitness";
+import { CardioCard } from "./WorkoutMode";
 
 type Sub = "today" | "schedule" | "progress" | "library";
 const SUBS: [Sub, string][] = [["today", "Today"], ["schedule", "Schedule"], ["progress", "Progress"], ["library", "Exercises"]];
@@ -17,21 +17,17 @@ const SUBS: [Sub, string][] = [["today", "Today"], ["schedule", "Schedule"], ["p
 export const STATUS_LABEL: Record<Workout["status"], string> = { planned: "Planned", in_progress: "In progress", completed: "Done", skipped: "Skipped" };
 const STATUS_PILL: Record<Workout["status"], string> = { planned: "info", in_progress: "warn", completed: "good", skipped: "" };
 
-export default function Fitness() {
-  return <FitnessProvider fallback={<p className="muted" style={{ paddingTop: 24 }}>Loading your training…</p>}><FitnessInner /></FitnessProvider>;
-}
-
-function FitnessInner() {
+// The fitness section of the dashboard. Opening a workout is handled by the dashboard, which shows it full page.
+export default function Fitness({ onOpen }: { onOpen: (id: string) => void }) {
   const [sub, setSub] = useState<Sub>("today");
-  const [open, setOpen] = useState<string | null>(null);
-  if (open) return <WorkoutMode id={open} onClose={() => { setOpen(null); window.scrollTo({ top: 0 }); }} />;
   return (
     <>
+      <div className="sec-head"><h2 className="sec-title">Fitness</h2></div>
       <nav className="subtabs" aria-label="Fitness sections">
         {SUBS.map(([k, label]) => <button key={k} aria-current={sub === k ? "page" : undefined} onClick={() => setSub(k)}>{label}</button>)}
       </nav>
-      {sub === "today" && <Home onOpen={setOpen} />}
-      {sub === "schedule" && <Schedule onOpen={setOpen} />}
+      {sub === "today" && <Home onOpen={onOpen} />}
+      {sub === "schedule" && <Schedule onOpen={onOpen} />}
       {sub === "progress" && <Progress />}
       {sub === "library" && <Library />}
     </>
@@ -52,7 +48,6 @@ function Home({ onOpen }: { onOpen: (id: string) => void }) {
   const wk = weekOf(today);
   const week = data.workouts.filter((x) => x.date >= wk && x.date <= addDays(wk, 6));
   const lifts = week.filter((x) => x.kind === "lift");
-  const upcoming = data.workouts.filter((x) => x.date > today && x.status === "planned").slice(0, 6);
   const cardioWeek = week.reduce((m, x) => m + (x.cardioDone ? x.cardioMinutes ?? 0 : 0), 0);
   // What's already logged today for this slot, if anything.
   const todayLine = (slot: number, key: string) => {
@@ -123,15 +118,6 @@ function Home({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
       </section>
 
-      <section className="card">
-        <div className="card-head"><h2>Coming up</h2></div>
-        {upcoming.length ? upcoming.map((x) => (
-          <div className="row" key={x.id}>
-            <span className="num small faint" style={{ width: 72 }}>{DOW[(new Date(x.date + "T12:00").getDay() + 6) % 7]} {fmtShort(x.date)}</span>
-            <span className="grow"><b>{x.title}</b> <span className="small muted">{x.kind === "lift" ? x.focus : "light cardio"}</span></span>
-          </div>
-        )) : <p className="small muted">Nothing else planned.</p>}
-      </section>
     </>
   );
 }

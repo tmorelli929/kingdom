@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { DOW, fmtShort } from "@/lib/life/dates";
+import { DOW, fmtShort, parseKey } from "@/lib/life/dates";
 import { fmtTime, summarizeDay, type CalEvent } from "@/lib/life/calendar";
 import { api } from "../api";
 import { useApp } from "../App";
@@ -12,7 +12,7 @@ const timeLabel = (e: CalEvent) => (e.allDay ? "All day" : `${fmtTime(e.start!)}
 
 // The real week from Google Calendar with his planned workouts alongside. Workouts live in Kingdom;
 // nothing here writes to Google.
-export function CalendarWeek({ days, onOpenWorkout }: { days: string[]; onOpenWorkout: () => void }) {
+export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { days: string[]; onOpenWorkout: (id: string) => void; title?: string }) {
   const { today, go, reloadNet, toast } = useApp();
   const { data: fit } = useFitness();
   const { cal, reload } = useCalendar(days[0], days.length);
@@ -20,7 +20,7 @@ export function CalendarWeek({ days, onOpenWorkout }: { days: string[]; onOpenWo
 
   const workoutsOn = (d: string) => fit.workouts.filter((w) => w.date === d);
   const header = (
-    <div className="card-head"><h2>Your week</h2>
+    <div className="card-head"><h2>{title}</h2>
       {cal.state === "ok" && <span className="pill good">GOOGLE CALENDAR</span>}
       {cal.state === "off" && <span className="pill info">CALENDAR NOT CONNECTED</span>}
       {cal.state === "expired" && <span className="pill warn">RECONNECT</span>}
@@ -48,7 +48,7 @@ export function CalendarWeek({ days, onOpenWorkout }: { days: string[]; onOpenWo
       {cal.state === "ok" && cal.problems.map((p) => <p key={p.calendar} className="small caution">{p.calendar}: {p.message}</p>)}
 
       <div className="calweek">
-        {days.map((d, i) => {
+        {days.map((d) => {
           const s = summarizeDay(events, d);
           const allDay = events.filter((e) => e.date === d && e.allDay);
           const timed = events.filter((e) => e.date === d && !e.allDay);
@@ -56,7 +56,7 @@ export function CalendarWeek({ days, onOpenWorkout }: { days: string[]; onOpenWo
           return (
             <div key={d} className={`calday${d === today ? " today" : ""}${d < today ? " past" : ""}`}>
               <div className="calday-head">
-                <b>{DOW[i]}</b> <span className="faint small">{fmtShort(d)}</span>
+                <b>{DOW[(parseKey(d).getDay() + 6) % 7]}</b> <span className="faint small">{fmtShort(d)}</span>
                 <span className="calflags">{cal.state === "ok" && s.eveningFree && d >= today && <span className="pill good">EVENING FREE</span>}</span>
               </div>
               {allDay.map((e) => (
@@ -65,7 +65,7 @@ export function CalendarWeek({ days, onOpenWorkout }: { days: string[]; onOpenWo
                 </div>
               ))}
               {ws.map((w) => (
-                <button key={w.id} className="calev workout-ev linkish" onClick={onOpenWorkout} title="Open in Fitness">
+                <button key={w.id} className="calev workout-ev linkish" onClick={() => onOpenWorkout(w.id)} title="Open this workout">
                   <span className="num faint small">{w.kind === "lift" ? "Workout" : "Recovery"}</span>
                   <span>{w.kind === "lift" ? `${w.title} · ${w.focus}` : `Light cardio ${w.cardioMin}–${w.cardioMax} min`} <span className="small faint">({STATUS_LABEL[w.status].toLowerCase()})</span></span>
                 </button>
