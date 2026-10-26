@@ -325,3 +325,9 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .brief-extra p { margin: 0 }
 .quick { color: inherit; text-decoration: none; font-size: 14px; line-height: 1.4 }
 .quick:hover { color: var(--gold) }
+.row-wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: end }
+.now-title { font-size: 18px; font-weight: 600; margin-top: 4px }
+.passage { max-height: 50vh; overflow-y: auto; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2) }
+.passage-ref { font-weight: 600; margin-bottom: 8px }
+.passage p { margin: 0 0 8px; line-height: 1.7; font-size: 16px }
+.passage sup { font: 600 10px var(--mono); color: var(--faint); margin-right: 3px }

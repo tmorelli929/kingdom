@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { addDays, DOW, fmtShort, weekDays, weekOf } from "@/lib/life/dates";
 import { uid } from "@/lib/life/defaults";
-import { consistency, DAY_LETTERS, doneOn, firstLoggedDay, scheduledOn, scheduleLabel, streak } from "@/lib/life/habits";
+import { BOOKS, refLabel } from "@/lib/life/bible";
+import { consistency, DAY_LETTERS, doneOn, firstLoggedDay, scheduledOn, scheduleLabel, setDone, streak } from "@/lib/life/habits";
 import type { Habit } from "@/lib/life/types";
 import { useApp } from "../App";
 import HabitChart, { weeklySeries } from "./HabitChart";
 import { Check, Icon } from "../ui";
 
-const blankDay = () => ({ intention: "", priorities: [{ t: "", d: false }, { t: "", d: false }, { t: "", d: false }], done: {} as Record<string, boolean> });
 const ALL = [0, 1, 2, 3, 4, 5, 6];
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const WEEKS = 12;
@@ -29,7 +29,7 @@ export default function Habits() {
   const [showHistory, setShowHistory] = useState(false);
   const [chartHabit, setChartHabit] = useState<string | null>(null);
   const days = weekDays(wk);
-  const toggle = (k: string, hid: string) => mutate((x) => { const day = (x.days[k] ??= blankDay()); day.done[hid] = !day.done[hid]; });
+  const toggle = (k: string, hid: string) => mutate((x) => setDone(x, hid, k, !doneOn(x, hid, k)));
   const due = doc.habits.filter((h) => scheduledOn(h, today));
   const off = doc.habits.filter((h) => !scheduledOn(h, today));
   const todayCount = due.filter((h) => doneOn(doc, h.id, today)).length;
@@ -69,11 +69,33 @@ export default function Habits() {
                         ))}
                         <span className="small muted">{scheduleLabel(h)}</span>
                       </div>
+                      <label className="field"><span className="lab">Calendar blocks with these words (comma-separated)</span>
+                        <input className="in" value={h.match ?? ""} placeholder={h.name} maxLength={120}
+                          onChange={(e) => mutate((d) => { d.habits.find((x) => x.id === h.id)!.match = e.target.value; })} />
+                      </label>
+                      <div className="row-wrap">
+                        <label className="field grow"><span className="lab">Reading plan</span>
+                          <select className="in" value={h.plan?.book ?? ""} onChange={(e) => mutate((d) => {
+                            const x = d.habits.find((y) => y.id === h.id)!;
+                            if (e.target.value) x.plan = { book: e.target.value, chapter: 1 }; else delete x.plan;
+                          })}>
+                            <option value="">None</option>
+                            {BOOKS.map(([b]) => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </label>
+                        {h.plan && (
+                          <label className="field"><span className="lab">Next chapter</span>
+                            <input className="in" type="number" min={1} max={BOOKS.find(([b]) => b === h.plan!.book)?.[1] ?? 1} value={h.plan.chapter} style={{ width: 90 }}
+                              onChange={(e) => { const n = Math.round(Number(e.target.value)); const max = BOOKS.find(([b]) => b === h.plan!.book)?.[1] ?? 1;
+                                if (n >= 1 && n <= max) mutate((d) => { d.habits.find((x) => x.id === h.id)!.plan!.chapter = n; }); }} />
+                          </label>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <>
                       <div className="quest-name">{h.name}</div>
-                      {h.days?.length ? <div className="small muted">{scheduleLabel(h)}</div> : null}
+                      {h.days?.length || h.plan ? <div className="small muted">{[h.days?.length ? scheduleLabel(h) : "", h.plan ? `${on ? "Read" : "Next"}: ${on ? doc.days[today]?.read?.[h.id] ?? "" : refLabel(h.plan)}` : ""].filter(Boolean).join(" · ")}</div> : null}
                     </>
                   )}
                 </div>

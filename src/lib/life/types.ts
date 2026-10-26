@@ -9,11 +9,14 @@ export type Area = {
   practices: string;
 };
 // days: weekdays it applies to (0 = Sunday). Missing means every day.
-export type Habit = { id: string; name: string; areaId: string; xp: number; days?: number[] };
+// match: words that tie it to calendar blocks (comma-separated; empty means its name). plan: a Bible reading plan,
+// where checking it off reads the current chapter and moves to the next.
+export type Habit = { id: string; name: string; areaId: string; xp: number; days?: number[]; match?: string; plan?: { book: string; chapter: number } };
 export type Goal = { id: string; week: string; title: string; areaId: string; target: number; count: number };
 export type Milestone = { id: string; areaId: string; title: string; done: boolean };
 export type Priority = { t: string; d: boolean };
-export type Day = { intention: string; priorities: Priority[]; done: Record<string, boolean> };
+// read: the chapter a reading-plan habit covered that day. skipped: habits he chose to skip that day.
+export type Day = { intention: string; priorities: Priority[]; done: Record<string, boolean>; read?: Record<string, string>; skipped?: Record<string, boolean> };
 export type AreaReflection = { rating?: number | null; note?: string };
 export type Reflection = { areas: Record<string, AreaReflection>; done?: boolean; wins?: string; next?: string };
 

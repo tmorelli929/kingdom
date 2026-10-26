@@ -24,3 +24,30 @@ test("consistency counts scheduled days up to today only", () => {
   assert.equal(scheduleLabel(h), "Mon, Wed, Fri");
   assert.equal(scheduleLabel({ ...h, days: [1, 2, 3, 4, 5] }), "Weekdays");
 });
+
+import { setDone } from "./habits";
+import { matchBlocks, splitByTime } from "./now";
+import { nextRef } from "./bible";
+import type { LifeDoc } from "./types";
+
+test("a reading plan moves one chapter per completed day and steps back when unchecked", () => {
+  const doc = { days: {}, habits: [{ id: "q", name: "Quiet time", areaId: "", xp: 0, plan: { book: "Jude", chapter: 1 } }] } as unknown as LifeDoc;
+  setDone(doc, "q", "2026-10-26", true);
+  assert.deepEqual(doc.habits[0].plan, { book: "Revelation", chapter: 1 });
+  assert.equal(doc.days["2026-10-26"].read?.q, "Jude");
+  setDone(doc, "q", "2026-10-26", false);
+  assert.deepEqual(doc.habits[0].plan, { book: "Jude", chapter: 1 });
+  assert.deepEqual(nextRef({ book: "Revelation", chapter: 22 }), { book: "Genesis", chapter: 1 });
+});
+
+test("calendar blocks match habits and workouts, and a missed block stays open later", () => {
+  const ev = (id: string, title: string, start: number, end: number) => ({ id, title, date: "2026-10-26", start, end, allDay: false, free: false, attendees: [] });
+  const habits = [{ id: "q", name: "Quiet time", areaId: "", xp: 0 }, { id: "w", name: "Workout", areaId: "", xp: 0 }, { id: "r", name: "Reading", areaId: "", xp: 0, match: "read, book club" }];
+  const items = matchBlocks([ev("1", "Quiet Time", 360, 390), ev("2", "Gym - Push A", 400, 460), ev("3", "Team sync", 540, 570), ev("4", "Book club", 1200, 1260), ev("5", "Spreadsheet review", 600, 630)], habits, "2026-10-26");
+  assert.deepEqual(items.map((i) => i.key), ["habit:q:1", "workout:2", "habit:r:4"]);
+  const at = splitByTime(items, 380, () => false);
+  assert.deepEqual(at.now.map((i) => i.key), ["habit:q:1"]);
+  assert.deepEqual(at.next.map((i) => i.key), ["workout:2"]);
+  const later = splitByTime(items, 900, (i) => i.kind === "habit" && i.habitId === "q");
+  assert.deepEqual(later.earlier.map((i) => i.key), ["workout:2"]);
+});
