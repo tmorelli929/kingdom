@@ -8,7 +8,8 @@ export type Area = {
   vision: string;
   practices: string;
 };
-export type Habit = { id: string; name: string; areaId: string; xp: number };
+// days: weekdays it applies to (0 = Sunday). Missing means every day.
+export type Habit = { id: string; name: string; areaId: string; xp: number; days?: number[] };
 export type Goal = { id: string; week: string; title: string; areaId: string; target: number; count: number };
 export type Milestone = { id: string; areaId: string; title: string; done: boolean };
 export type Priority = { t: string; d: boolean };

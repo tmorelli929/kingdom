@@ -2,18 +2,22 @@
 import { useState } from "react";
 import { addDays, DOW, fmtShort, weekDays, weekOf } from "@/lib/life/dates";
 import { uid } from "@/lib/life/defaults";
-import type { LifeDoc } from "@/lib/life/types";
+import { consistency, DAY_LETTERS, doneOn, scheduledOn, scheduleLabel, streak } from "@/lib/life/habits";
+import type { Habit } from "@/lib/life/types";
 import { useApp } from "../App";
 import { Check, Icon } from "../ui";
 
 const blankDay = () => ({ intention: "", priorities: [{ t: "", d: false }, { t: "", d: false }, { t: "", d: false }], done: {} as Record<string, boolean> });
+const ALL = [0, 1, 2, 3, 4, 5, 6];
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKS = 12;
 
-// Days in a row, counting back from today (or from yesterday if today isn't checked yet). A miss just restarts it.
-export function streak(doc: LifeDoc, hid: string, today: string) {
-  let d = doc.days[today]?.done?.[hid] ? today : addDays(today, -1);
-  let n = 0;
-  while (doc.days[d]?.done?.[hid]) { n++; d = addDays(d, -1); }
-  return n;
+// Toggles one weekday on a habit's schedule. All seven means every day; the last day can't be removed.
+function toggleDay(h: Habit, day: number) {
+  const cur = h.days?.length ? h.days : ALL;
+  const next = cur.includes(day) ? cur.filter((x) => x !== day) : [...cur, day].sort();
+  if (!next.length) return;
+  h.days = next.length === 7 ? undefined : next;
 }
 
 export default function Habits() {
@@ -22,40 +26,63 @@ export default function Habits() {
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
   const days = weekDays(wk);
-  const done = (k: string, hid: string) => !!doc.days[k]?.done?.[hid];
   const toggle = (k: string, hid: string) => mutate((x) => { const day = (x.days[k] ??= blankDay()); day.done[hid] = !day.done[hid]; });
-  const last30 = (hid: string) => Array.from({ length: 30 }, (_, i) => addDays(today, -i)).filter((k) => done(k, hid)).length;
-  const todayCount = doc.habits.filter((h) => done(today, h.id)).length;
+  const due = doc.habits.filter((h) => scheduledOn(h, today));
+  const off = doc.habits.filter((h) => !scheduledOn(h, today));
+  const todayCount = due.filter((h) => doneOn(doc, h.id, today)).length;
+  const list = editing ? doc.habits : due;
+  const isOn = (h: Habit, day: number) => !h.days?.length || h.days.includes(day);
+  // History grid: 12 full weeks ending with the current one, Monday at the top of each column.
+  const heatStart = addDays(weekOf(today), -7 * (WEEKS - 1));
+  const heatDays = Array.from({ length: WEEKS * 7 }, (_, i) => addDays(heatStart, i));
+  // Percentages start from the first day he logged anything, so weeks before he used the app don't count as misses.
+  const firstLogged = Object.keys(doc.days).filter((k) => Object.values(doc.days[k]?.done ?? {}).some(Boolean)).sort()[0] ?? today;
+  const since = (k: string) => (k > firstLogged ? k : firstLogged);
 
   return (
     <>
       <section className="hero single stack-s">
         <span className="eyebrow">Habits</span>
-        <h1>{todayCount === doc.habits.length && todayCount > 0 ? "All done today." : `${todayCount} of ${doc.habits.length} done today`}</h1>
+        <h1>{!due.length ? "Nothing scheduled today." : todayCount === due.length ? "All done today." : `${todayCount} of ${due.length} done today`}</h1>
       </section>
 
       <section className="card">
         <div className="card-head"><h2>Today</h2><button className="btn ghost sm" onClick={() => setEditing(!editing)}>{editing ? "Done editing" : "Edit habits"}</button></div>
         <div className="list">
-          {doc.habits.map((h) => {
-            const on = done(today, h.id);
-            const s = streak(doc, h.id, today);
+          {list.map((h) => {
+            const on = doneOn(doc, h.id, today);
+            const s = streak(doc, h, today);
             return (
               <div className={`row${on && !editing ? " done" : ""}`} key={h.id}>
                 {!editing && <Check on={on} label={`Mark ${h.name} done`} onClick={() => toggle(today, h.id)} />}
-                <div className="grow">
-                  {editing
-                    ? <input className="in" aria-label="Habit name" value={h.name} onChange={(e) => mutate((d) => { d.habits.find((x) => x.id === h.id)!.name = e.target.value; })} />
-                    : <div className="quest-name">{h.name}</div>}
+                <div className="grow stack-s">
+                  {editing ? (
+                    <>
+                      <input className="in" aria-label="Habit name" value={h.name} onChange={(e) => mutate((d) => { d.habits.find((x) => x.id === h.id)!.name = e.target.value; })} />
+                      <div className="dayp" role="group" aria-label={`Days for ${h.name}`}>
+                        {DAY_LETTERS.map((l, i) => (
+                          <button key={i} type="button" className={isOn(h, i) ? "on" : ""} aria-pressed={isOn(h, i)} aria-label={DAY_NAMES[i]}
+                            onClick={() => mutate((d) => toggleDay(d.habits.find((x) => x.id === h.id)!, i))}>{l}</button>
+                        ))}
+                        <span className="small muted">{scheduleLabel(h)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="quest-name">{h.name}</div>
+                      {h.days?.length ? <div className="small muted">{scheduleLabel(h)}</div> : null}
+                    </>
+                  )}
                 </div>
                 {editing
                   ? <button className="iconbtn" aria-label={`Remove ${h.name}`} onClick={() => mutate((d) => { d.habits = d.habits.filter((x) => x.id !== h.id); })}><Icon name="x" /></button>
-                  : <span className="num small muted" title="Days in a row">{s ? `${s} day${s === 1 ? "" : "s"}` : ""}</span>}
+                  : <span className="num small muted" title="Scheduled days in a row">{s ? `${s} in a row` : ""}</span>}
               </div>
             );
           })}
           {!doc.habits.length && <div className="empty">No habits yet. Click Edit habits to add one.</div>}
         </div>
+        {!editing && off.length > 0 && <p className="small muted">Not scheduled today: {off.map((h) => h.name).join(", ")}</p>}
         {editing && (
           <form style={{ display: "flex", gap: 8, marginTop: 10 }} onSubmit={(e) => {
             e.preventDefault();
@@ -79,22 +106,58 @@ export default function Habits() {
           </div>
         </div>
         <div className="wk"><table>
-          <thead><tr><th />{days.map((k, i) => <th key={k} className={k === today ? "today" : ""}>{DOW[i]}</th>)}<th title="Days done in the last 30">30d</th></tr></thead>
-          <tbody>{doc.habits.map((h) => (
-            <tr key={h.id}>
-              <td>{h.name}</td>
-              {days.map((k) => (
-                <td key={k}>
-                  <button className={`cell${done(k, h.id) ? " on" : ""}${k > today ? " off" : ""}`} disabled={k > today}
-                    aria-label={`${h.name} on ${fmtShort(k)}: ${done(k, h.id) ? "done" : "not done"}`} onClick={() => toggle(k, h.id)} />
-                </td>
-              ))}
-              <td className="num small muted">{last30(h.id)}</td>
-            </tr>
-          ))}</tbody>
+          <thead><tr><th />{days.map((k, i) => <th key={k} className={k === today ? "today" : ""}>{DOW[i]}</th>)}<th title="Scheduled days done this week">Week</th></tr></thead>
+          <tbody>{doc.habits.map((h) => {
+            const c = consistency(doc, h, days[0], days[6], today);
+            return (
+              <tr key={h.id}>
+                <td>{h.name}</td>
+                {days.map((k) => {
+                  const on = doneOn(doc, h.id, k);
+                  const sched = scheduledOn(h, k);
+                  return (
+                    <td key={k}>
+                      <button className={`cell${on ? " on" : ""}${!sched && !on ? " rest" : ""}${k > today ? " off" : ""}`} disabled={k > today}
+                        aria-label={`${h.name} on ${fmtShort(k)}: ${on ? "done" : sched ? "not done" : "not scheduled"}`} onClick={() => toggle(k, h.id)} />
+                    </td>
+                  );
+                })}
+                <td className="num small muted">{c ? `${c.done}/${c.sched}` : "–"}</td>
+              </tr>
+            );
+          })}</tbody>
         </table></div>
-        <p className="small muted">Tap a square to fill in a day you missed logging.</p>
+        <p className="small muted">Tap a square to fill in a day you missed logging. Faded squares are days the habit isn&apos;t scheduled.</p>
       </section>
+
+      {doc.habits.length > 0 && (
+        <section className="card">
+          <div className="card-head"><h2>Last {WEEKS} weeks</h2></div>
+          <div className="stack">
+            {doc.habits.map((h) => {
+              const four = consistency(doc, h, since(addDays(today, -27)), today, today);
+              const twelve = consistency(doc, h, since(heatStart), today, today);
+              return (
+                <div key={h.id} className="stack-s">
+                  <div className="heat-head">
+                    <span>{h.name}</span>
+                    <span className="small muted num">{four ? `${Math.round(four.pct * 100)}% ${four.sched < 28 ? `of ${four.sched} days` : "last 4 weeks"}` : "Not scheduled yet"}</span>
+                  </div>
+                  <div className="heat" role="img" aria-label={`${h.name}, last ${WEEKS} weeks: ${twelve ? `${twelve.done} of ${twelve.sched} scheduled days done` : "nothing scheduled"}`}>
+                    {heatDays.map((k) => {
+                      const on = doneOn(doc, h.id, k);
+                      const state = k > today ? "upcoming" : on ? "done" : scheduledOn(h, k) ? "not done" : "not scheduled";
+                      const cls = k > today ? "future" : on ? "on" : scheduledOn(h, k) ? "miss" : "rest";
+                      return <i key={k} className={cls} title={`${fmtShort(k)}: ${state}`} />;
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="small muted">Each column is a week, Monday at the top. Only scheduled days count, and a missed day never takes anything away.</p>
+        </section>
+      )}
     </>
   );
 }
