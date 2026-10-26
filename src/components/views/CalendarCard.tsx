@@ -65,7 +65,7 @@ export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { day
               ))}
               {ws.map((w) => (
                 <button key={w.id} className="calev workout-ev linkish" onClick={() => onOpenWorkout(w.id)} title="Open this workout">
-                  <span className="num faint small">{w.kind === "lift" ? "Workout" : "Recovery"}</span>
+                  <span className="num faint small">{w.kind === "lift" ? "Lift" : "Recovery"}</span>
                   <span>{w.kind === "lift" ? `${w.title} · ${w.focus}` : `Light cardio ${w.cardioMin}–${w.cardioMax} min`} <span className="small faint">({STATUS_LABEL[w.status].toLowerCase()})</span></span>
                 </button>
               ))}
