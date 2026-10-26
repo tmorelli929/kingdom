@@ -223,6 +223,8 @@ export default function Setup() {
         </label>
       </section>
 
+      <AiSpend />
+
       <section className="card stack-s">
         <h2>Assistant</h2>
         <p className="small muted">The Ask box on your dashboard sends the data below to Anthropic&apos;s API to answer your question. It always sees your workouts and habits. People you mark private are never included.</p>
@@ -279,5 +281,29 @@ export default function Setup() {
         )}
       </section>
     </>
+  );
+}
+
+type Spend = { today: number; month: number; total: number; calls: number; searches: number; byFeature: Record<string, number> };
+const FEATURE: Record<string, string> = { news: "Morning brief", ask: "Ask", digest: "Daily digest", insights: "Insights" };
+const money = (n: number) => (n > 0 && n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
+
+// What the AI features have cost, estimated from token counts at list price.
+function AiSpend() {
+  const [s, setS] = useState<Spend | null>(null);
+  useEffect(() => { api<Spend>(`/api/usage?tz=${encodeURIComponent(tz())}`).then(setS).catch(() => {}); }, []);
+  if (!s) return null;
+  const parts = Object.entries(s.byFeature).sort((a, b) => b[1] - a[1]);
+  return (
+    <section className="card stack-s">
+      <h2>AI spending</h2>
+      <div className="spend">
+        <div><span className="lab">Today</span><b className="num">{money(s.today)}</b></div>
+        <div><span className="lab">This month</span><b className="num">{money(s.month)}</b></div>
+        <div><span className="lab">Since you started</span><b className="num">{money(s.total)}</b></div>
+      </div>
+      {parts.length > 0 && <p className="small muted">This month: {parts.map(([k, v]) => `${FEATURE[k] ?? k} ${money(v)}`).join(" · ")}. {s.calls} calls, {s.searches} web searches.</p>}
+      <p className="small faint">An estimate from list prices. Your Anthropic console shows the exact bill, and you can set a monthly spend limit there.</p>
+    </section>
   );
 }

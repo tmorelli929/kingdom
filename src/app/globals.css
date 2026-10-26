@@ -331,3 +331,6 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .passage-ref { font-weight: 600; margin-bottom: 8px }
 .passage p { margin: 0 0 8px; line-height: 1.7; font-size: 16px }
 .passage sup { font: 600 10px var(--mono); color: var(--faint); margin-right: 3px }
+.spend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px }
+.spend > div { display: grid; gap: 4px }
+.spend b { font-size: 20px }

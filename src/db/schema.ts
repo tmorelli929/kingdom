@@ -34,6 +34,24 @@ export const imports = pgTable("imports", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// One row per Claude API call, with its token counts and estimated cost, so Settings can show what AI features cost.
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    feature: text("feature").notNull(), // "ask" | "insights" | "news" | "digest"
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+    cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+    searches: integer("searches").notNull().default(0),
+    costMicros: integer("cost_micros").notNull().default(0), // millionths of a dollar
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_usage_user_idx").on(t.userId, t.createdAt)],
+);
+
 export const coachMessages = pgTable(
   "coach_messages",
   {
