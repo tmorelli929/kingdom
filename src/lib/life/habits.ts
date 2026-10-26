@@ -1,4 +1,5 @@
 import { addDays, parseKey } from "./dates";
+import { nextRef, parseRef, refLabel } from "./bible";
 import type { Habit, LifeDoc } from "./types";
 
 export const scheduledOn = (h: Habit, k: string) => !h.days || h.days.length === 0 || h.days.includes(parseKey(k).getDay());
@@ -41,3 +42,30 @@ export function scheduleLabel(h: Habit) {
 // started using the app aren't treated as misses.
 export const firstLoggedDay = (doc: LifeDoc, today: string) =>
   Object.keys(doc.days).filter((k) => Object.values(doc.days[k]?.done ?? {}).some(Boolean)).sort()[0] ?? today;
+
+const blankDay = () => ({ intention: "", priorities: [{ t: "", d: false }, { t: "", d: false }, { t: "", d: false }], done: {} as Record<string, boolean> });
+
+// Checks a habit on or off for a day. A reading-plan habit logs the chapter it covered and moves on;
+// unchecking the latest one puts the plan back on that chapter.
+export function setDone(doc: LifeDoc, hid: string, k: string, on: boolean) {
+  const day = (doc.days[k] ??= blankDay());
+  const h = doc.habits.find((x) => x.id === hid);
+  if (!!day.done[hid] === on) return;
+  day.done[hid] = on;
+  if (on && day.skipped) delete day.skipped[hid];
+  if (!h?.plan) return;
+  if (on) {
+    (day.read ??= {})[hid] = refLabel(h.plan);
+    h.plan = nextRef(h.plan);
+  } else if (day.read?.[hid]) {
+    const back = parseRef(day.read[hid]);
+    if (back && refLabel(nextRef(back)) === refLabel(h.plan)) h.plan = back;
+    delete day.read[hid];
+  }
+}
+
+export function setSkipped(doc: LifeDoc, hid: string, k: string, on: boolean) {
+  const day = (doc.days[k] ??= blankDay());
+  if (on) (day.skipped ??= {})[hid] = true;
+  else if (day.skipped) delete day.skipped[hid];
+}

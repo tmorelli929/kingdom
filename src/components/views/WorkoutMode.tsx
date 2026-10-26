@@ -5,7 +5,10 @@ import { CARDIO_OPTIONS } from "@/lib/fitness/library";
 import { fmtSession, sessionsFor } from "@/lib/fitness/history";
 import { fmtW, suggest } from "@/lib/fitness/progression";
 import type { Exercise, PlanSlot, SetRow, Workout } from "@/lib/fitness-db";
+import { setDone } from "@/lib/life/habits";
+import { workoutHabit } from "@/lib/life/now";
 import { api } from "../api";
+import { useApp } from "../App";
 import { useFitness } from "../fitness";
 import { Icon } from "../ui";
 
@@ -146,6 +149,7 @@ export function CardioCard({ w }: { w: Workout }) {
 // Logging screen for one session. Every set saves as it's entered, so closing the app mid-workout loses nothing.
 export default function WorkoutMode({ id, onClose }: { id: string; onClose: () => void }) {
   const { data, patchWorkout, reload } = useFitness();
+  const { mutate } = useApp();
   const w = data.workouts.find((x) => x.id === id);
   const [restUntil, setRestUntil] = useState<number | null>(null);
   const [notes, setNotes] = useState(w?.notes ?? "");
@@ -184,7 +188,12 @@ export default function WorkoutMode({ id, onClose }: { id: string; onClose: () =
       </section>
       <div className="btns" style={{ marginBottom: 80 }}>
         {w.status !== "completed"
-          ? <button className="btn primary big" onClick={async () => { await patchWorkout(w.id, { action: "finish", notes }); await reload(); onClose(); }}>Finish workout</button>
+          ? <button className="btn primary big" onClick={async () => {
+              await patchWorkout(w.id, { action: "finish", notes });
+              // A finished lift checks off his workout habit for that day.
+              if (w.kind === "lift") mutate((d) => { const h = workoutHabit(d); if (h) setDone(d, h.id, w.date, true); });
+              await reload(); onClose();
+            }}>Finish workout</button>
           : <button className="btn ghost" onClick={() => patchWorkout(w.id, { action: "start" })}>Reopen for editing</button>}
         <label className="toggle small"><input type="checkbox" checked={data.settings.restTimer} onChange={async (e) => { await api("/api/fitness/settings", "PATCH", { restTimer: e.target.checked }); reload(); }} />Rest timer</label>
       </div>
