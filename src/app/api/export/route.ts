@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { authed } from "@/lib/http";
 import { loadNetwork } from "@/lib/network-db";
+import { loadFitness } from "@/lib/fitness-db";
 
 // Everything Kingdom stores about you, as one JSON file. Session tokens are never included.
 export const GET = authed(async (_req, user) => {
@@ -14,6 +15,7 @@ export const GET = authed(async (_req, user) => {
     account: { email: user.email, name: user.name },
     life: life?.data ?? null,
     network: await loadNetwork(user.id),
+    fitness: await loadFitness(user.id),
     coach,
     imports,
     // Which accounts are connected. Tokens are never exported.

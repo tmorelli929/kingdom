@@ -15,6 +15,20 @@
       "when": 1792969737451,
       "tag": "0001_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792974126987,
+      "tag": "0002_fitness",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792974596683,
+      "tag": "0003_calendar_list",
+      "breakpoints": true
     }
   ]
 }

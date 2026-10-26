@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { addDays, fmtShort, weekDays, weekOf } from "@/lib/life/dates";
 import { useApp } from "../App";
+import { FitnessProvider } from "../fitness";
 import { CalendarWeek } from "./CalendarCard";
 
 export default function CalendarView() {
-  const { today } = useApp();
+  const { today, go } = useApp();
   const [wk, setWk] = useState(() => weekOf(today));
   return (
     <>
@@ -20,7 +21,9 @@ export default function CalendarView() {
           </div>
         </div>
       </section>
-      <CalendarWeek key={wk} days={weekDays(wk)} />
+      <FitnessProvider fallback={<p className="muted">Loading…</p>}>
+        <CalendarWeek key={wk} days={weekDays(wk)} onOpenWorkout={() => go("fitness")} />
+      </FitnessProvider>
     </>
   );
 }

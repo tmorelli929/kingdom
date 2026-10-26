@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -123,7 +123,102 @@ export const connections = pgTable(
     status: text("status").notNull().default("ok"), // "ok" | "expired"
     // Calendar events he said aren't about anyone in his network.
     dismissed: text("dismissed").array().notNull().default(sql`'{}'::text[]`),
+    // His Google calendars and which ones Kingdom reads: [{ id, name, color, primary, selected }].
+    calendars: jsonb("calendars").notNull().default(sql`'[]'::jsonb`),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("connections_user_provider_idx").on(t.userId, t.provider)],
+);
+
+/* ---------- Fitness ---------- */
+
+// His exercise library: the defaults plus his own. `key` is stable so plans and logs can refer to it.
+export const exercises = pgTable(
+  "exercises",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    muscle: text("muscle").notNull(),
+    equipment: text("equipment").notNull(),
+    // The exact machine at his gym, e.g. "Technogym Selection 900 Chest Press, station 4".
+    equipmentDetail: text("equipment_detail").notNull().default(""),
+    pattern: text("pattern").notNull().default(""),
+    type: text("type").notNull().default(""),
+    increment: real("increment").notNull().default(5),
+    caution: text("caution").notNull().default(""),
+    // "unknown" until he confirms his gym has it.
+    availability: text("availability").notNull().default("unknown"), // "unknown" | "available" | "unavailable"
+    custom: boolean("custom").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
+
+export const fitnessSettings = pgTable("fitness_settings", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  unit: text("unit").notNull().default("lb"),
+  restTimer: boolean("rest_timer").notNull().default(true),
+  seededPrograms: text("seeded_programs").array().notNull().default(sql`'{}'::text[]`),
+});
+
+// One dated session, planned or done. `plan` is this day's own copy of the exercises, so changing
+// a template never rewrites history, and a substitution only affects this session.
+export const workouts = pgTable(
+  "workouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    kind: text("kind").notNull(), // "lift" | "recovery"
+    templateCode: text("template_code"),
+    title: text("title").notNull(),
+    focus: text("focus").notNull().default(""),
+    plan: jsonb("plan").notNull(), // PlanItem[] (+ swappedFrom)
+    status: text("status").notNull().default("planned"), // "planned" | "in_progress" | "completed" | "skipped"
+    note: text("note").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    cardioMin: integer("cardio_min").notNull().default(10),
+    cardioMax: integer("cardio_max").notNull().default(15),
+    cardioOptions: text("cardio_options").array().notNull().default(sql`'{}'::text[]`),
+    cardioMinutes: integer("cardio_minutes"),
+    cardioEquipment: text("cardio_equipment"),
+    cardioDone: boolean("cardio_done").notNull().default(false),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // Where seeding put it; stays the same if he moves the session, so re-seeding never duplicates it.
+    seedKey: text("seed_key"),
+    originalDate: date("original_date"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("workouts_user_date_idx").on(t.userId, t.date), uniqueIndex("workouts_seed_idx").on(t.userId, t.seedKey)],
+);
+
+// One set. `slot` is the exercise's position in the session's plan.
+export const workoutSets = pgTable(
+  "workout_sets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    workoutId: uuid("workout_id").notNull().references(() => workouts.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(),
+    setNumber: integer("set_number").notNull(),
+    exerciseKey: text("exercise_key").notNull(),
+    weight: real("weight"),
+    reps: integer("reps"),
+    done: boolean("done").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("workout_sets_slot_idx").on(t.workoutId, t.slot, t.setNumber), index("workout_sets_ex_idx").on(t.userId, t.exerciseKey)],
+);
+
+export const bodyWeights = pgTable(
+  "body_weights",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    weight: real("weight").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.date] })],
 );

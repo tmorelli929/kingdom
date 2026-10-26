@@ -131,7 +131,7 @@ async function calendarFor(userId: string, allowed: boolean, today: string, tz?:
   try { new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { return { status: "error" }; }
   const from = weekOf(today);
   try {
-    return { status: "ok", events: await fetchEvents(c, from, 14, zone) };
+    return { status: "ok", events: (await fetchEvents(c, from, 14, zone)).events };
   } catch (e) {
     return { status: e instanceof CalendarExpired ? "expired" : "error" };
   }

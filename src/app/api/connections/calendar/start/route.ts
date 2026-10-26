@@ -13,6 +13,7 @@ export const GET = authed(async (_req, user) => {
   const url = googleClient().createAuthorizationURL(state, verifier, CALENDAR_SCOPES);
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
+  url.searchParams.set("include_granted_scopes", "true");
   url.searchParams.set("login_hint", user.email);
   const jar = await cookies();
   const opts = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: 600 };
