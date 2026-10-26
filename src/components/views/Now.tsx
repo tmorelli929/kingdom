@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Passage from "./Passage";
 import { fmtTime } from "@/lib/life/calendar";
-import { refLabel } from "@/lib/life/bible";
+import { markRead, readingHabit, todaysChapter } from "@/lib/life/bible";
 import { doneOn, setDone, setSkipped } from "@/lib/life/habits";
 import { matchBlocks, splitByTime, type NowItem } from "@/lib/life/now";
 import { useApp } from "../App";
@@ -43,9 +43,10 @@ export default function Now({ cal, onOpenWorkout }: { cal: CalendarState; onOpen
   const complete = (i: NowItem) => {
     if (i.kind === "workout") { if (workout) onOpenWorkout(workout.id); return; }
     const h = doc.habits.find((x) => x.id === i.habitId)!;
-    const ref = h.plan ? refLabel(h.plan) : "";
-    mutate((d) => setDone(d, h.id, today, true));
-    toast(ref ? `${h.name} logged · ${ref} read.` : `${h.name} logged.`);
+    const reads = readingHabit(doc)?.id === h.id && !todaysChapter(doc, today).read && !todaysChapter(doc, today).finished;
+    const ref = todaysChapter(doc, today).label;
+    mutate((d) => { if (reads) markRead(d, today, true); setDone(d, h.id, today, true); });
+    toast(reads ? `${h.name} logged · ${ref} read.` : `${h.name} logged.`);
   };
   const skip = (i: NowItem) => { mutate((d) => setSkipped(d, skipId(i), today, true)); toast("Skipped for now. It's under Still open today."); };
   const label = (i: NowItem) => i.kind === "workout"
@@ -60,7 +61,7 @@ export default function Now({ cal, onOpenWorkout }: { cal: CalendarState; onOpen
         return (
           <div key={i.key} className="stack-s">
             <div><span className="eyebrow">{i.event.title} · {span(i)}</span><div className="now-title">{label(i)}</div></div>
-            {h?.plan && <Passage key={refLabel(h.plan)} chapter={refLabel(h.plan)} />}
+            {h && readingHabit(doc)?.id === h.id && !todaysChapter(doc, today).finished && <Passage key={todaysChapter(doc, today).label} chapter={todaysChapter(doc, today).label} />}
             <div className="btns">
               <button className="btn primary" onClick={() => complete(i)}>{i.kind === "workout" ? (workout?.status === "in_progress" ? "Continue workout" : "Start workout") : "Complete"}</button>
               <button className="btn ghost" onClick={() => skip(i)}>Skip</button>

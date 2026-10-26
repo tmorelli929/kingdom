@@ -25,18 +25,23 @@ test("consistency counts scheduled days up to today only", () => {
   assert.equal(scheduleLabel({ ...h, days: [1, 2, 3, 4, 5] }), "Weekdays");
 });
 
-import { setDone } from "./habits";
 import { matchBlocks, splitByTime } from "./now";
-import { nextRef } from "./bible";
+import { markRead, nextRef, todaysChapter } from "./bible";
 import type { LifeDoc } from "./types";
 
-test("a reading plan moves one chapter per completed day and steps back when unchecked", () => {
-  const doc = { days: {}, habits: [{ id: "q", name: "Quiet time", areaId: "", xp: 0, plan: { book: "Jude", chapter: 1 } }] } as unknown as LifeDoc;
-  setDone(doc, "q", "2026-10-26", true);
-  assert.deepEqual(doc.habits[0].plan, { book: "Revelation", chapter: 1 });
-  assert.equal(doc.days["2026-10-26"].read?.q, "Jude");
-  setDone(doc, "q", "2026-10-26", false);
-  assert.deepEqual(doc.habits[0].plan, { book: "Jude", chapter: 1 });
+test("scripture moves one chapter per day read, stops at the end of the book, and undo steps back", () => {
+  const doc = { days: {}, habits: [{ id: "q", name: "Quiet time", areaId: "", xp: 0 }] } as unknown as LifeDoc;
+  assert.equal(todaysChapter(doc, "2026-10-26").label, "John 1");
+  markRead(doc, "2026-10-26", true);
+  assert.deepEqual([doc.reading?.chapter, doc.days["2026-10-26"].read?.scripture, doc.days["2026-10-26"].done.q], [2, "John 1", true]);
+  markRead(doc, "2026-10-26", true); // only once a day
+  assert.equal(doc.reading?.chapter, 2);
+  markRead(doc, "2026-10-26", false);
+  assert.deepEqual([doc.reading?.chapter, doc.days["2026-10-26"].done.q], [1, false]);
+  doc.reading = { book: "John", chapter: 21, startedOn: "2026-10-26" };
+  markRead(doc, "2026-11-15", true);
+  assert.equal(doc.reading.finished, true);
+  assert.equal(todaysChapter(doc, "2026-11-16").finished, true);
   assert.deepEqual(nextRef({ book: "Revelation", chapter: 22 }), { book: "Genesis", chapter: 1 });
 });
 

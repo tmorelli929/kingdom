@@ -1,4 +1,5 @@
-// Book-by-book reading plan: one chapter per completed day, in canonical order. Skipping a day never moves the place.
+// Book-by-book scripture plan: one chapter per day read. Skipping a day never moves the place, and finishing a book
+// stops there so he can choose what to read next.
 
 export const BOOKS: [string, number][] = [
   ["Genesis", 50], ["Exodus", 40], ["Leviticus", 27], ["Numbers", 36], ["Deuteronomy", 34], ["Joshua", 24], ["Judges", 21], ["Ruth", 4],
@@ -12,6 +13,9 @@ export const BOOKS: [string, number][] = [
   ["3 John", 1], ["Jude", 1], ["Revelation", 22],
 ];
 const CHAPTERS = new Map(BOOKS);
+
+import { setDone } from "./habits";
+import type { LifeDoc, Reading } from "./types";
 
 export type ReadingPlan = { book: string; chapter: number };
 
@@ -30,4 +34,43 @@ export function parseRef(s: string): ReadingPlan | null {
   const m = /^(.+?) (\d{1,3})$/.exec(s.trim());
   const p = m ? { book: m[1], chapter: Number(m[2]) } : { book: s.trim(), chapter: 1 };
   return isValidRef(p) ? p : null;
+}
+
+export const chaptersIn = (book: string) => CHAPTERS.get(book) ?? 1;
+export const NEXT_BOOKS = ["Acts", "Mark", "Romans", "Psalms", "Proverbs", "Genesis", "James", "Ephesians"];
+
+// His plan. Without one, it starts today at John 1.
+export const readingOf = (doc: LifeDoc, today: string): Reading => doc.reading ?? { book: "John", chapter: 1, startedOn: today };
+
+// The habit that reading checks off: quiet time, Bible, scripture or devotional, if he has one.
+export const readingHabit = (doc: LifeDoc) => doc.habits.find((h) => /quiet time|bible|scripture|devotion/i.test(h.name));
+
+// The chapter for today: the one he read today, or the next one up.
+export function todaysChapter(doc: LifeDoc, today: string) {
+  const r = readingOf(doc, today);
+  const read = doc.days[today]?.read?.scripture;
+  return { label: read ?? refLabel(r), read: !!read, finished: !read && !!r.finished };
+}
+
+// Marks today's chapter read (moving the plan on and checking off the reading habit), or undoes that.
+export function markRead(doc: LifeDoc, today: string, on: boolean) {
+  const r = (doc.reading ??= readingOf(doc, today));
+  const day = (doc.days[today] ??= { intention: "", priorities: [], done: {} });
+  const h = readingHabit(doc);
+  if (on) {
+    if (day.read?.scripture || r.finished) return;
+    (day.read ??= {}).scripture = refLabel(r);
+    if (r.chapter >= chaptersIn(r.book)) r.finished = true; else r.chapter++;
+    if (h) setDone(doc, h.id, today, true);
+  } else if (day.read?.scripture) {
+    const back = parseRef(day.read.scripture);
+    if (back) { r.book = back.book; r.chapter = back.chapter; r.finished = false; }
+    delete day.read.scripture;
+    if (h) setDone(doc, h.id, today, false);
+  }
+}
+
+export function startBook(doc: LifeDoc, book: string, today: string) {
+  if (!CHAPTERS.has(book)) return;
+  doc.reading = { book, chapter: 1, startedOn: today };
 }

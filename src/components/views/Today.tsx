@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { refLabel } from "@/lib/life/bible";
+import { BOOKS, chaptersIn, markRead, NEXT_BOOKS, readingHabit, readingOf, startBook, todaysChapter } from "@/lib/life/bible";
 import { fmtTime } from "@/lib/life/calendar";
 import { addDays, fmtLong } from "@/lib/life/dates";
 import { doneOn, scheduledOn, setDone } from "@/lib/life/habits";
@@ -15,7 +15,7 @@ import Now from "./Now";
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; };
 
-// The daily flow, top to bottom: verse of the day, news, what this block is for, the day at a glance,
+// The daily flow, top to bottom: scripture and verse of the day, news, what this block is for, the day at a glance,
 // who to follow up with, then the week ahead.
 export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) => void }) {
   const { doc, today } = useApp();
@@ -27,7 +27,7 @@ export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) =
         <h1>{greeting()}{first ? `, ${first}` : ""}</h1>
         <p className="muted">{fmtLong(today)}</p>
       </div>
-      <Verse />
+      <Scripture />
       <News />
       <Now cal={cal} onOpenWorkout={onOpenWorkout} />
       <DayPlan cal={cal} />
@@ -62,7 +62,7 @@ function DayPlan({ cal }: { cal: ReturnType<typeof useCalendar>["cal"] }) {
             return (
               <div key={h.id} className={`habit-check${on ? " on" : ""}`}>
                 <Check on={on} label={`Mark ${h.name} done`} onClick={() => mutate((d) => setDone(d, h.id, today, !on))} />
-                <span className="grow">{h.name}{h.plan && <span className="small faint"> · {on ? doc.days[today]?.read?.[h.id] : refLabel(h.plan)}</span>}</span>
+                <span className="grow">{h.name}{readingHabit(doc)?.id === h.id && <span className="small faint"> · {todaysChapter(doc, today).label}</span>}</span>
               </div>
             );
           })}
@@ -97,33 +97,48 @@ function FollowUps() {
   );
 }
 
-// The verse he picked from today's chapter. Until he picks one, today's chapter to read, with the text a tap away.
-function Verse() {
-  const { doc, today, go } = useApp();
+// Scripture: today's chapter of his plan, read in place and marked read in one tap. The verse he taps becomes
+// his verse of the day. Finishing a book asks what to read next.
+function Scripture() {
+  const { doc, today, mutate, toast } = useApp();
   const [reading, setReading] = useState(false);
-  const h = doc.habits.find((x) => x.plan);
+  const [choosing, setChoosing] = useState(false);
+  const plan = readingOf(doc, today);
+  const t = todaysChapter(doc, today);
   const verse = doc.days[today]?.verse;
-  if (!h?.plan && !verse) {
-    return <section className="card"><p className="small muted">Add a reading plan to a habit in <button className="linkish" onClick={() => go("habits")}>Habits → Edit habits</button> to get a verse of the day.</p></section>;
+  const total = chaptersIn(plan.book);
+  const doneCh = plan.finished ? total : plan.chapter - 1;
+  const start = (book: string) => { mutate((d) => startBook(d, book, today)); setChoosing(false); toast(`Now reading ${book}.`); };
+  if (t.finished || choosing) {
+    return (
+      <section className="card stack-s">
+        <span className="eyebrow">Scripture</span>
+        <h2>{t.finished ? `You finished ${plan.book}` : "Read a different book"}</h2>
+        <p className="small muted">Pick what to read next. It starts at chapter 1.</p>
+        <div className="chips">{NEXT_BOOKS.filter((b) => b !== plan.book).map((b) => <button key={b} className="chip" onClick={() => start(b)}>{b}</button>)}</div>
+        <select className="in" value="" onChange={(e) => e.target.value && start(e.target.value)}>
+          <option value="">Any book…</option>
+          {BOOKS.map(([b]) => <option key={b} value={b}>{b}</option>)}
+        </select>
+        {choosing && <button className="btn ghost sm" onClick={() => setChoosing(false)}>Cancel</button>}
+      </section>
+    );
   }
-  const chapter = (h && doc.days[today]?.read?.[h.id]) || (h?.plan ? refLabel(h.plan) : "");
   return (
     <section className="card votd">
-      <span className="eyebrow">Verse of the day</span>
-      {verse ? (
-        <>
-          <blockquote>{verse.text}</blockquote>
-          <div className="row-wrap" style={{ alignItems: "center" }}><span className="small muted">{verse.ref}</span>
-            {chapter && <button className="btn ghost sm" onClick={() => setReading(!reading)}>{reading ? "Close" : `Read ${chapter}`}</button>}</div>
-        </>
-      ) : (
-        <div className="row-wrap" style={{ alignItems: "center" }}>
-          <span className="grow">Today&apos;s reading: <b>{chapter}</b></span>
-          <button className="btn ghost sm" onClick={() => setReading(!reading)}>{reading ? "Close" : "Read"}</button>
-        </div>
-      )}
-      {!verse && !reading && <p className="small faint">Tap the verse that stands out and it becomes your verse of the day.</p>}
-      {reading && chapter && <Passage chapter={chapter} />}
+      <div className="card-head"><span className="eyebrow">Scripture · {plan.book} {doneCh}/{total}</span>
+        <button className="linkish small faint" onClick={() => setChoosing(true)}>Change</button></div>
+      {verse && <><blockquote>{verse.text}</blockquote><span className="small muted">{verse.ref} · verse of the day</span></>}
+      <div className="row-wrap" style={{ alignItems: "center" }}>
+        <span className="grow">{t.read ? <>Read today: <b>{t.label}</b> ✓</> : <>Today: <b>{t.label}</b></>}</span>
+        <button className="btn ghost sm" onClick={() => setReading(!reading)}>{reading ? "Close" : t.read ? "Open" : "Read"}</button>
+        {!t.read
+          ? <button className="btn primary sm" onClick={() => { mutate((d) => markRead(d, today, true)); setReading(false); toast(`${t.label} read.`); }}>Mark read</button>
+          : <button className="btn ghost sm" onClick={() => mutate((d) => markRead(d, today, false))}>Undo</button>}
+      </div>
+      <div className="bar gold"><i style={{ width: `${Math.round((doneCh / total) * 100)}%` }} /></div>
+      {!verse && reading && <p className="small faint">Tap the verse that stands out to make it your verse of the day.</p>}
+      {reading && <Passage chapter={t.label} />}
     </section>
   );
 }
