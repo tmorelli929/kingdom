@@ -263,8 +263,9 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .rest-bar .num { white-space: nowrap }
 .allday { font-size: 13px; padding: 4px 8px; margin: 3px 0; border-left: 3px solid; border-radius: 6px; background: var(--surface-2); overflow-wrap: anywhere }
 .allday .dot, .calev .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle }
-.workout-ev { width: 100%; color: var(--gold) }
-.workout-ev .num { color: var(--gold) }
+.workout-ev { width: 100%; text-align: left; font-weight: 400; color: var(--fg) }
+.workout-ev::after, .workout-row::after { content: "›"; margin-left: auto; padding-left: 8px; color: var(--faint) }
+.workout-ev:hover .grow, .workout-ev:hover > span:last-of-type { color: var(--gold) }
 .cal-pick { display: grid; gap: 4px; margin-top: 10px } .cal-pick .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px }
 
 /* Habit schedules and history */
@@ -339,7 +340,7 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .plan-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); width: 100%; text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; color: inherit }
 .card-head + .plan-row { border-top: 0 }
 .plan-time { width: 64px; flex: none; font: 600 12px var(--mono); color: var(--faint) }
-.workout-row .plan-time, .workout-row .grow { color: var(--gold) }
+.workout-row:hover .grow { color: var(--gold) }
 .habit-checks { display: grid; gap: 2px; padding-top: 10px; border-top: 1px solid var(--line) }
 .habit-check { display: flex; align-items: center; gap: 12px; padding: 4px 0 }
 .habit-check.on .grow { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint) }
