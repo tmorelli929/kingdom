@@ -1,14 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, ne } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { buildContext, COACH_SYSTEM, type CalendarContext } from "@/lib/coach";
-import { CalendarExpired, fetchEvents, getConnection } from "@/lib/google-calendar";
+import { COACH_SYSTEM } from "@/lib/coach";
+import { assistantData } from "@/lib/coach-data";
 import { env } from "@/lib/env";
 import { authed, fail, json, readJson } from "@/lib/http";
-import { timeIn, todayIn } from "@/lib/life/dates";
 import { looksLikeLifeDoc } from "@/lib/life/migrate";
-import { loadNetwork } from "@/lib/network-db";
-import { loadFitness } from "@/lib/fitness-db";
 
 const MODEL = "claude-opus-5-5";
 const HOURLY_LIMIT = 40;
@@ -18,7 +15,7 @@ export const GET = authed(async (_req, user) => {
   const rows = await db
     .select({ kind: schema.coachMessages.kind, role: schema.coachMessages.role, content: schema.coachMessages.content, createdAt: schema.coachMessages.createdAt })
     .from(schema.coachMessages)
-    .where(eq(schema.coachMessages.userId, user.id))
+    .where(and(eq(schema.coachMessages.userId, user.id), ne(schema.coachMessages.kind, "insights")))
     .orderBy(desc(schema.coachMessages.createdAt))
     .limit(60);
   rows.reverse();
@@ -47,13 +44,7 @@ export const POST = authed(async (req, user) => {
 
   const [life] = await db.select().from(schema.lifeDocs).where(eq(schema.lifeDocs.userId, user.id)).limit(1);
   if (!life || !looksLikeLifeDoc(life.data)) return fail(400, "Set up your dashboard first.");
-  const today = todayIn(body.tz);
-  const [net, fit, cal] = await Promise.all([
-    loadNetwork(user.id),
-    loadFitness(user.id).catch(() => null),
-    calendarFor(user.id, life.data.coachAccess?.calendar !== false, today, body.tz),
-  ]);
-  const context = buildContext(life.data, net, fit, today, timeIn(body.tz), message, cal);
+  const { context } = await assistantData(user.id, life.data, body.tz, message);
 
   const history = mode === "chat"
     ? (await db
@@ -126,18 +117,3 @@ export const POST = authed(async (req, user) => {
   });
   return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
 });
-
-// Today and the next 13 days of calendar, if connected and shared. A calendar problem never blocks the assistant.
-async function calendarFor(userId: string, allowed: boolean, today: string, tz?: string): Promise<CalendarContext> {
-  const c = await getConnection(userId);
-  if (!c) return { status: "none" };
-  if (!allowed) return { status: "hidden" };
-  if (c.status !== "ok") return { status: "expired" };
-  const zone = tz || "UTC";
-  try { new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { return { status: "error" }; }
-  try {
-    return { status: "ok", events: (await fetchEvents(c, today, 14, zone)).events };
-  } catch (e) {
-    return { status: e instanceof CalendarExpired ? "expired" : "error" };
-  }
-}

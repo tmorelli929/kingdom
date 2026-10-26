@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { db, schema } from "@/db";
 import { SESSION_COOKIE } from "@/lib/auth/session";
@@ -17,6 +17,7 @@ export const DELETE = authed(async (req, user) => {
 export const PATCH = authed(async (req, user) => {
   const body = (await readJson(req)) as { clear?: string };
   if (body.clear !== "coach") return fail(400, "Unknown request.");
-  await db.delete(schema.coachMessages).where(eq(schema.coachMessages.userId, user.id));
+  // Clears the Ask conversation; today's insights stay.
+  await db.delete(schema.coachMessages).where(and(eq(schema.coachMessages.userId, user.id), ne(schema.coachMessages.kind, "insights")));
   return json({ ok: true });
 });
