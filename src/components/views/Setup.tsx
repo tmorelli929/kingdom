@@ -210,6 +210,20 @@ export default function Setup() {
       </section>
 
       <section className="card stack-s">
+        <h2>News</h2>
+        <p className="small muted">A five-minute brief each morning: 5 stories, 3 quick headlines and a conversation starter, found with a web search. One topic per line, most important first.</p>
+        <textarea className="in" id="news-topics" rows={6} defaultValue={(doc.newsTopics ?? []).join("\n")} placeholder={"Enterprise tech sales\nAI in business\nRaleigh–Durham\nStrength training research"}
+          onBlur={(e) => { const v = e.target.value.split("\n").map((t) => t.trim()).filter(Boolean).slice(0, 12); mutate((d) => { d.newsTopics = v; }); }} />
+        <label className="field"><span className="lab">Where you live (for local news)</span>
+          <input className="in" id="news-location" defaultValue={doc.newsLocation ?? ""} placeholder="Raleigh, NC" maxLength={100} onBlur={(e) => mutate((d) => { d.newsLocation = e.target.value.trim(); })} />
+        </label>
+        <label className="field"><span className="lab">What you&apos;re working toward (shapes &ldquo;why it matters&rdquo;)</span>
+          <textarea className="in" id="news-about" rows={3} defaultValue={doc.newsAbout ?? ""} maxLength={600} placeholder="Growing toward an account executive role in enterprise tech. Want to run a company someday. Long-term investor, not a trader."
+            onBlur={(e) => mutate((d) => { d.newsAbout = e.target.value.trim(); })} />
+        </label>
+      </section>
+
+      <section className="card stack-s">
         <h2>Assistant</h2>
         <p className="small muted">The Ask box on your dashboard sends the data below to Anthropic&apos;s API to answer your question. It always sees your workouts and habits. People you mark private are never included.</p>
         <label className="toggle"><input type="checkbox" checked={doc.coachAccess?.calendar !== false} onChange={(e) => mutate((d) => { d.coachAccess = { ...d.coachAccess, calendar: e.target.checked }; })} />Let it see my calendar events</label>
