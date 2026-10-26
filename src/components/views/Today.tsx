@@ -6,10 +6,8 @@ import { doneOn, scheduledOn, setDone } from "@/lib/life/habits";
 import { openCommitments, reconnectList, upcomingMeetings } from "@/lib/life/network";
 import { useApp } from "../App";
 import { useCalendar } from "../calendar";
-import { useFitness } from "../fitness";
 import { Check } from "../ui";
 import CalendarView from "./CalendarView";
-import { STATUS_LABEL } from "./Fitness";
 import News from "./News";
 import Now from "./Now";
 
@@ -28,22 +26,20 @@ export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) =
         <p className="muted">{fmtLong(today)}</p>
       </div>
       <Now cal={cal} onOpenWorkout={onOpenWorkout} />
-      <DayPlan cal={cal} onOpenWorkout={onOpenWorkout} />
+      <DayPlan cal={cal} />
       <News />
       <FollowUps />
-      <div className="sec"><CalendarView from={addDays(today, 1)} onOpenWorkout={onOpenWorkout} /></div>
+      <div className="sec"><CalendarView from={addDays(today, 1)} /></div>
     </div>
   );
 }
 
-// Today's schedule with the workout in it, and the habits due today as one-tap checks.
-function DayPlan({ cal, onOpenWorkout }: { cal: ReturnType<typeof useCalendar>["cal"]; onOpenWorkout: (id: string) => void }) {
+// Today's calendar, and the habits due today as one-tap checks.
+function DayPlan({ cal }: { cal: ReturnType<typeof useCalendar>["cal"] }) {
   const { doc, today, mutate, go } = useApp();
-  const { data: fit } = useFitness();
   const events = cal.state === "ok" ? cal.events.filter((e) => e.date === today) : [];
   const allDay = events.filter((e) => e.allDay);
   const timed = events.filter((e) => !e.allDay).sort((a, b) => a.start! - b.start!);
-  const workout = fit.workouts.find((w) => w.date === today);
   const due = doc.habits.filter((h) => scheduledOn(h, today));
   const doneCount = due.filter((h) => doneOn(doc, h.id, today)).length;
   const d = new Date(); const nowMin = d.getHours() * 60 + d.getMinutes();
@@ -51,13 +47,6 @@ function DayPlan({ cal, onOpenWorkout }: { cal: ReturnType<typeof useCalendar>["
   return (
     <section className="card stack-s">
       <div className="card-head"><h2>Today</h2>{due.length > 0 && <span className="small muted num">{doneCount}/{due.length} habits</span>}</div>
-      {workout && (
-        <button className="plan-row workout-row" onClick={() => onOpenWorkout(workout.id)}>
-          <span className="plan-time">{workout.kind === "lift" ? "Lift" : "Recovery"}</span>
-          <span className="grow">{workout.kind === "lift" ? `${workout.title} · ${workout.focus}` : `Light cardio ${workout.cardioMin}–${workout.cardioMax} min`}</span>
-          <span className="small faint">{STATUS_LABEL[workout.status]}</span>
-        </button>
-      )}
       {allDay.map((e) => <div key={`${e.calendarId}-${e.id}`} className="plan-row"><span className="plan-time">All day</span><span className="grow">{e.title}</span></div>)}
       {timed.map((e) => <div key={`${e.calendarId}-${e.id}-${e.start}`} className={`plan-row${e.end! <= nowMin ? " past" : e.start! <= nowMin ? " current" : ""}`}><span className="plan-time">{fmtTime(e.start!)}</span><span className="grow">{e.title}</span></div>)}
       {cal.state === "off" && <p className="small muted"><button className="linkish" onClick={() => go("setup")}>Connect Google Calendar</button> to see your day here.</p>}

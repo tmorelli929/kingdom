@@ -5,7 +5,7 @@ import { useApp } from "../App";
 import { CalendarWeek } from "./CalendarCard";
 
 // Seven days starting today, so the top of the dashboard is always what's next.
-export default function CalendarView({ onOpenWorkout, from }: { onOpenWorkout: (id: string) => void; from?: string }) {
+export default function CalendarView({ from }: { from?: string }) {
   const { today } = useApp();
   const first = from ?? today;
   const [start, setStart] = useState(first);
@@ -20,7 +20,7 @@ export default function CalendarView({ onOpenWorkout, from }: { onOpenWorkout: (
           <button className="iconbtn" aria-label="Next 7 days" onClick={() => setStart(addDays(start, 7))}>›</button>
         </div>
       </div>
-      <CalendarWeek key={start} days={days} onOpenWorkout={onOpenWorkout} title={start === first ? "Next 7 days" : `${fmtShort(days[0])} – ${fmtShort(days[6])}`} />
+      <CalendarWeek key={start} days={days} title={start === first ? "Next 7 days" : `${fmtShort(days[0])} – ${fmtShort(days[6])}`} />
     </>
   );
 }
