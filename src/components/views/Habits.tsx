@@ -5,6 +5,7 @@ import { uid } from "@/lib/life/defaults";
 import { consistency, DAY_LETTERS, doneOn, firstLoggedDay, scheduledOn, scheduleLabel, streak } from "@/lib/life/habits";
 import type { Habit } from "@/lib/life/types";
 import { useApp } from "../App";
+import HabitChart, { weeklySeries } from "./HabitChart";
 import { Check, Icon } from "../ui";
 
 const blankDay = () => ({ intention: "", priorities: [{ t: "", d: false }, { t: "", d: false }, { t: "", d: false }], done: {} as Record<string, boolean> });
@@ -26,6 +27,7 @@ export default function Habits() {
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [chartHabit, setChartHabit] = useState<string | null>(null);
   const days = weekDays(wk);
   const toggle = (k: string, hid: string) => mutate((x) => { const day = (x.days[k] ??= blankDay()); day.done[hid] = !day.done[hid]; });
   const due = doc.habits.filter((h) => scheduledOn(h, today));
@@ -133,7 +135,14 @@ export default function Habits() {
 
       {doc.habits.length > 0 && (
         <section className="card">
-          <div className="card-head"><h2>Last {WEEKS} weeks</h2><button className="btn ghost sm" aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>{showHistory ? "Hide" : "Show"}</button></div>
+          <div className="card-head"><h2>Last {WEEKS} weeks</h2></div>
+          <div className="chips">
+            <button className="chip" aria-pressed={!chartHabit} onClick={() => setChartHabit(null)}>All habits</button>
+            {doc.habits.map((h) => <button key={h.id} className="chip" aria-pressed={chartHabit === h.id} onClick={() => setChartHabit(chartHabit === h.id ? null : h.id)}>{h.name}</button>)}
+          </div>
+          <HabitChart label={chartHabit ? doc.habits.find((h) => h.id === chartHabit)?.name ?? "Habit" : "All habits"}
+            series={weeklySeries(doc, chartHabit ? [chartHabit] : doc.habits.map((h) => h.id), heatStart, WEEKS, today, firstLogged)} />
+          <div><button className="btn ghost sm" aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>{showHistory ? "Hide day-by-day grid" : "Show day-by-day grid"}</button></div>
           {showHistory && <><div className="stack">
             {doc.habits.map((h) => {
               const four = consistency(doc, h, since(addDays(today, -27)), today, today);
