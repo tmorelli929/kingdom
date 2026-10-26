@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { addDays, daysBetween, fmtShort, monthOf } from "@/lib/life/dates";
 import {
-  INTERACTION_KINDS, INTERACTION_XP, COMMITMENT_XP, lastInteraction, metricCount, METRIC_LABEL, needsTakeaways,
+  INTERACTION_KINDS, INTERACTION_XP, COMMITMENT_XP, lastContact, metricCount, METRIC_LABEL, needsTakeaways,
   openCommitments, reconnectList, recentInteractions, upcomingMeetings, type Interaction, type Person,
 } from "@/lib/life/network";
 import { api } from "../api";
@@ -99,7 +99,7 @@ function PersonView({ id }: { id: string }) {
   };
   const timeline = net.interactions.filter((i) => i.personId === id).sort((a, b) => b.occurredOn.localeCompare(a.occurredOn));
   const commits = net.commitments.filter((c) => c.personId === id).sort((a, b) => Number(!!a.doneOn) - Number(!!b.doneOn));
-  const last = lastInteraction(id, net.interactions, today);
+  const last = p ? lastContact(p, net.interactions, today) : null;
 
   return (
     <>
@@ -109,7 +109,7 @@ function PersonView({ id }: { id: string }) {
           <span className="avatar" style={{ width: 52, height: 52, fontSize: 16 }}>{initials(p.name)}</span>
           <div style={{ minWidth: 0 }} className="grow">
             <h1 style={{ fontSize: 26 }}>{p.name}</h1>
-            <p className="muted small">{[p.title, p.organization].filter(Boolean).join(" · ") || "No title yet"}{last ? ` · last spoke ${when(last.occurredOn, today).toLowerCase()}` : ""}</p>
+            <p className="muted small">{[p.title, p.organization].filter(Boolean).join(" · ") || "No title yet"}{last ? ` · ${last.label.toLowerCase()} ${when(last.on, today).toLowerCase()}` : ""}</p>
           </div>
           {p.linkedinUrl && <a className="btn ghost sm" href={p.linkedinUrl} target="_blank" rel="noopener noreferrer"><Icon name="link" />LinkedIn</a>}
         </div>
@@ -316,8 +316,8 @@ export default function Network() {
           {doc.networkCategories.map((c) => <button key={c} className="chip" aria-pressed={cat === c} onClick={() => setCat(cat === c ? null : c)}>{c}</button>)}
         </div>
         {directory.length ? <div>{directory.map((p) => {
-          const last = lastInteraction(p.id, net.interactions, today);
-          return <PersonRow key={p.id} p={p} sub={[[p.title, p.organization].filter(Boolean).join(" · "), p.categories.join(", "), last ? `last spoke ${when(last.occurredOn, today).toLowerCase()}` : "no conversations yet"].filter(Boolean).join(" — ")} />;
+          const last = lastContact(p, net.interactions, today);
+          return <PersonRow key={p.id} p={p} sub={[[p.title, p.organization].filter(Boolean).join(" · "), p.categories.join(", "), last ? `${last.label.toLowerCase()} ${when(last.on, today).toLowerCase()}` : "no contact logged yet"].filter(Boolean).join(" — ")} />;
         })}</div> : <div className="empty">{net.people.length ? "No one matches that search." : "No one here yet. Tap Add someone right after you meet a person."}</div>}
       </section>
     </>

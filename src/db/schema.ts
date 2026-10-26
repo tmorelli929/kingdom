@@ -66,6 +66,9 @@ export const people = pgTable(
     notes: text("notes").notNull().default(""),
     interests: text("interests").notNull().default(""),
     nextFollowUp: date("next_follow_up"),
+    // Most recent email with this person, from Gmail headers only (no content). Cleared when Gmail is disconnected.
+    lastEmailOn: date("last_email_on"),
+    lastEmailDir: text("last_email_dir"), // "sent" | "received"
     // When false, the coach never sees this person.
     aiAccess: boolean("ai_access").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -114,7 +117,7 @@ export const connections = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    provider: text("provider").notNull(), // "google_calendar"
+    provider: text("provider").notNull(), // "google_calendar" | "gmail"
     accountEmail: text("account_email").notNull().default(""),
     scope: text("scope").notNull().default(""),
     refreshToken: text("refresh_token").notNull(),
@@ -126,6 +129,8 @@ export const connections = pgTable(
     // His Google calendars and which ones Kingdom reads: [{ id, name, color, primary, selected }].
     calendars: jsonb("calendars").notNull().default(sql`'[]'::jsonb`),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    // Gmail: newest message time (ms) already scanned, so each sync only reads newer mail.
+    cursor: text("cursor"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("connections_user_provider_idx").on(t.userId, t.provider)],

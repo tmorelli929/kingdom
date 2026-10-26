@@ -48,6 +48,7 @@ const toPerson = (r: typeof schema.people.$inferSelect): Person => ({
   nextFollowUp: r.nextFollowUp,
   aiAccess: r.aiAccess,
   addedOn: r.createdAt.toISOString().slice(0, 10),
+  lastEmail: r.lastEmailOn ? { on: r.lastEmailOn, dir: r.lastEmailDir === "sent" ? "sent" : "received" } : null,
 });
 const toInteraction = (r: typeof schema.interactions.$inferSelect): Interaction => ({
   id: r.id, personId: r.personId, occurredOn: r.occurredOn, kind: r.kind, summary: r.summary, sourceEventId: r.sourceEventId,

@@ -17,6 +17,7 @@ export type Person = {
   nextFollowUp: string | null;
   aiAccess: boolean;
   addedOn: string; // date the profile was created
+  lastEmail?: { on: string; dir: "sent" | "received" } | null; // from Gmail headers, when connected
 };
 export type Interaction = { id: string; personId: string; occurredOn: string; kind: string; summary: string; sourceEventId?: string | null };
 export type Commitment = { id: string; personId: string; text: string; dueOn: string | null; doneOn: string | null };
@@ -50,6 +51,14 @@ export function lastInteraction(personId: string, interactions: Interaction[], t
   return last;
 }
 
+// The most recent contact of any kind: a logged interaction or an email (from Gmail).
+export function lastContact(p: Person, interactions: Interaction[], today: string): { on: string; label: string } | null {
+  const i = lastInteraction(p.id, interactions, today);
+  const e = p.lastEmail && p.lastEmail.on <= today ? p.lastEmail : null;
+  if (e && (!i || e.on > i.occurredOn)) return { on: e.on, label: e.dir === "sent" ? "You emailed" : "They emailed" };
+  return i ? { on: i.occurredOn, label: i.kind[0].toUpperCase() + i.kind.slice(1) } : null;
+}
+
 export function cadenceFor(p: Pick<Person, "categories">) {
   const days = p.categories.map((c) => CADENCE[c]).filter(Boolean);
   return days.length ? Math.min(...days) : null;
@@ -70,9 +79,9 @@ export function reconnectList(d: NetworkData, today: string): ReconnectReason[] 
     if (!cadence || p.nextFollowUp) continue;
     const upcoming = d.interactions.some((i) => i.personId === p.id && i.occurredOn > today);
     if (upcoming) continue;
-    const last = lastInteraction(p.id, d.interactions, today);
-    const since = last ? daysBetween(last.occurredOn, today) : daysBetween(p.addedOn, today);
-    if (since >= cadence) out.push({ person: p, why: last ? `Last spoke ${since} days ago` : `Added ${since} days ago, no conversation logged`, overdueDays: since - cadence });
+    const last = lastContact(p, d.interactions, today);
+    const since = last ? daysBetween(last.on, today) : daysBetween(p.addedOn, today);
+    if (since >= cadence) out.push({ person: p, why: last ? `Last contact ${since} days ago` : `Added ${since} days ago, no conversation logged`, overdueDays: since - cadence });
   }
   return out.sort((a, b) => b.overdueDays - a.overdueDays);
 }

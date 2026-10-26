@@ -6,10 +6,10 @@ import { db, schema } from "@/db";
 import { googleClient, isAllowed } from "@/lib/auth/google";
 import { createSession, currentUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
-import { saveConnection } from "@/lib/google-calendar";
+import { PROVIDER, saveConnection } from "@/lib/google-calendar";
+import { GMAIL, hasGmailScope, isWorkAccount } from "@/lib/gmail";
 
 const back = (reason: string) => NextResponse.redirect(`${env().APP_URL}/login?error=${reason}`);
-const toSetup = (result: string) => NextResponse.redirect(`${env().APP_URL}/?calendar=${result}#setup`);
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -22,7 +22,8 @@ export async function GET(req: Request) {
   jar.delete("g_state");
   jar.delete("g_verifier");
   jar.delete("g_flow");
-  if (flow?.startsWith("calendar:")) return connectCalendar(flow.slice(9), code, state, savedState, verifier);
+  if (flow?.startsWith("calendar:")) return connectGoogle("calendar", flow.slice(9), code, state, savedState, verifier);
+  if (flow?.startsWith("gmail:")) return connectGoogle("gmail", flow.slice(6), code, state, savedState, verifier);
   if (!code || !state || !savedState || !verifier || state !== savedState) return back("expired");
 
   let tokens: OAuth2Tokens;
@@ -50,8 +51,15 @@ export async function GET(req: Request) {
   return NextResponse.redirect(`${env().APP_URL}/`);
 }
 
-// Finishes the Calendar connection for the signed-in user who started it.
-async function connectCalendar(userId: string, code: string | null, state: string | null, savedState?: string, verifier?: string) {
+const FLOWS = {
+  calendar: { provider: PROVIDER, granted: (s: string[]) => s.some((x) => x.endsWith("/calendar.events.readonly")) },
+  gmail: { provider: GMAIL, granted: hasGmailScope },
+};
+
+// Finishes a Calendar or Gmail connection for the signed-in user who started it.
+async function connectGoogle(which: keyof typeof FLOWS, userId: string, code: string | null, state: string | null, savedState?: string, verifier?: string) {
+  const flow = FLOWS[which];
+  const toSetup = (result: string) => NextResponse.redirect(`${env().APP_URL}/?${which}=${result}#setup`);
   const user = await currentUser();
   if (!user || user.id !== userId) return back("expired");
   if (!code || !state || !savedState || !verifier || state !== savedState) return toSetup("cancelled");
@@ -62,14 +70,19 @@ async function connectCalendar(userId: string, code: string | null, state: strin
     return toSetup("failed");
   }
   const scope = tokens.hasScopes() ? tokens.scopes() : [];
-  if (!scope.some((s) => s.endsWith("/calendar.events.readonly")) || !tokens.hasRefreshToken()) return toSetup("denied");
+  if (!flow.granted(scope) || !tokens.hasRefreshToken()) return toSetup("denied");
   let accountEmail = "";
   try {
     accountEmail = ((decodeIdToken(tokens.idToken()) as { email?: string }).email ?? "").toLowerCase();
-  } catch { /* email is display-only */ }
+  } catch { /* email is display-only for Calendar */ }
+  // Gmail needs the account address to tell sent from received, and work accounts are refused.
+  if (which === "gmail" && (!accountEmail || isWorkAccount(accountEmail))) {
+    try { await googleClient().revokeToken(tokens.refreshToken()); } catch { /* best effort */ }
+    return toSetup(accountEmail ? "work" : "failed");
+  }
   await saveConnection(user.id, {
     refreshToken: tokens.refreshToken(), accessToken: tokens.accessToken(), expiresAt: tokens.accessTokenExpiresAt(),
     scope: scope.join(" "), accountEmail,
-  });
+  }, flow.provider);
   return toSetup("connected");
 }
