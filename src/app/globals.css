@@ -314,3 +314,14 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 /* Insights */
 .insight { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line) }
 .insight:first-child { border-top: 0; padding-top: 0 }
+
+/* News */
+.story { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none }
+.story:first-child { border-top: 0; padding-top: 0 }
+.story-title { font-weight: 600; line-height: 1.35 }
+.story:hover .story-title { color: var(--gold) }
+.story .why { color: var(--gold); font-weight: 600 }
+.brief-extra { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line) }
+.brief-extra p { margin: 0 }
+.quick { color: inherit; text-decoration: none; font-size: 14px; line-height: 1.4 }
+.quick:hover { color: var(--gold) }

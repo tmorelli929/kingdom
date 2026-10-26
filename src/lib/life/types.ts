@@ -39,6 +39,9 @@ export type LifeDoc = {
   schedule: Record<string, string>;
   startedOn: string;
   networkCategories: string[];
+  newsTopics?: string[]; // what the daily news brief covers
+  newsLocation?: string;
+  newsAbout?: string;
   networkGoals: NetworkGoal[];
   coachAccess: CoachAccess;
   [extra: string]: unknown; // unknown V1 fields are kept, never dropped

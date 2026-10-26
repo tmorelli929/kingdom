@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { and, desc, eq, gte, ne } from "drizzle-orm";
+import { and, desc, eq, gte, notInArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { COACH_SYSTEM } from "@/lib/coach";
 import { assistantData } from "@/lib/coach-data";
@@ -15,7 +15,7 @@ export const GET = authed(async (_req, user) => {
   const rows = await db
     .select({ kind: schema.coachMessages.kind, role: schema.coachMessages.role, content: schema.coachMessages.content, createdAt: schema.coachMessages.createdAt })
     .from(schema.coachMessages)
-    .where(and(eq(schema.coachMessages.userId, user.id), ne(schema.coachMessages.kind, "insights")))
+    .where(and(eq(schema.coachMessages.userId, user.id), notInArray(schema.coachMessages.kind, ["insights", "news"])))
     .orderBy(desc(schema.coachMessages.createdAt))
     .limit(60);
   rows.reverse();
