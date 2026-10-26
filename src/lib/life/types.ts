@@ -9,13 +9,12 @@ export type Area = {
   practices: string;
 };
 // days: weekdays it applies to (0 = Sunday). Missing means every day.
-// match: words that tie it to calendar blocks (comma-separated; empty means its name). plan: a Bible reading plan,
-// where checking it off reads the current chapter and moves to the next.
-export type Habit = { id: string; name: string; areaId: string; xp: number; days?: number[]; match?: string; plan?: { book: string; chapter: number } };
+// match: words that tie it to calendar blocks (comma-separated; empty means its name).
+export type Habit = { id: string; name: string; areaId: string; xp: number; days?: number[]; match?: string };
 export type Goal = { id: string; week: string; title: string; areaId: string; target: number; count: number };
 export type Milestone = { id: string; areaId: string; title: string; done: boolean };
 export type Priority = { t: string; d: boolean };
-// read: the chapter a reading-plan habit covered that day. skipped: habits he chose to skip that day.
+// read.scripture: the chapter of his reading plan he read that day. skipped: habits he chose to skip that day.
 // verse: the verse he picked from that day's reading as his verse of the day.
 export type Day = { intention: string; priorities: Priority[]; done: Record<string, boolean>; read?: Record<string, string>; skipped?: Record<string, boolean>; verse?: { ref: string; text: string } };
 export type AreaReflection = { rating?: number | null; note?: string };
@@ -26,6 +25,9 @@ export type NetworkMetric = "new_people" | "conversations" | "mentor_conversatio
 export type NetworkGoal = { id: string; title: string; metric: NetworkMetric; target: number; period: "week" | "month"; areaId: string };
 
 export type CoachAccess = { reflections: boolean; network: boolean; profile: boolean; calendar?: boolean };
+
+// Book-by-book scripture plan. finished: the last chapter of the book has been read.
+export type Reading = { book: string; chapter: number; startedOn: string; finished?: boolean };
 
 export type LifeDoc = {
   v: 2;
@@ -43,6 +45,7 @@ export type LifeDoc = {
   schedule: Record<string, string>;
   startedOn: string;
   networkCategories: string[];
+  reading?: Reading; // scripture reading plan, one chapter a day
   newsTopics?: string[]; // what the daily news brief covers
   newsLocation?: string;
   newsAbout?: string;
