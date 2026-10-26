@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { refLabel } from "@/lib/life/bible";
 import { fmtTime } from "@/lib/life/calendar";
 import { addDays, fmtLong } from "@/lib/life/dates";
@@ -9,12 +10,13 @@ import { useCalendar } from "../calendar";
 import { Check } from "../ui";
 import CalendarView from "./CalendarView";
 import News from "./News";
+import Passage from "./Passage";
 import Now from "./Now";
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; };
 
-// The daily flow, top to bottom: what this block is for, the day at a glance, the brief, who to follow up with,
-// then the week ahead.
+// The daily flow, top to bottom: verse of the day, news, what this block is for, the day at a glance,
+// who to follow up with, then the week ahead.
 export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) => void }) {
   const { doc, today } = useApp();
   const { cal } = useCalendar(today, 1);
@@ -25,9 +27,10 @@ export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) =
         <h1>{greeting()}{first ? `, ${first}` : ""}</h1>
         <p className="muted">{fmtLong(today)}</p>
       </div>
+      <Verse />
+      <News />
       <Now cal={cal} onOpenWorkout={onOpenWorkout} />
       <DayPlan cal={cal} />
-      <News />
       <FollowUps />
       <div className="sec"><CalendarView from={addDays(today, 1)} /></div>
     </div>
@@ -90,6 +93,37 @@ function FollowUps() {
           <span className="grow"><span className="quest-name">{r.text}</span><br /><span className="small muted">{r.sub}</span></span>
         </button>
       ))}
+    </section>
+  );
+}
+
+// The verse he picked from today's chapter. Until he picks one, today's chapter to read, with the text a tap away.
+function Verse() {
+  const { doc, today, go } = useApp();
+  const [reading, setReading] = useState(false);
+  const h = doc.habits.find((x) => x.plan);
+  const verse = doc.days[today]?.verse;
+  if (!h?.plan && !verse) {
+    return <section className="card"><p className="small muted">Add a reading plan to a habit in <button className="linkish" onClick={() => go("habits")}>Habits → Edit habits</button> to get a verse of the day.</p></section>;
+  }
+  const chapter = (h && doc.days[today]?.read?.[h.id]) || (h?.plan ? refLabel(h.plan) : "");
+  return (
+    <section className="card votd">
+      <span className="eyebrow">Verse of the day</span>
+      {verse ? (
+        <>
+          <blockquote>{verse.text}</blockquote>
+          <div className="row-wrap" style={{ alignItems: "center" }}><span className="small muted">{verse.ref}</span>
+            {chapter && <button className="btn ghost sm" onClick={() => setReading(!reading)}>{reading ? "Close" : `Read ${chapter}`}</button>}</div>
+        </>
+      ) : (
+        <div className="row-wrap" style={{ alignItems: "center" }}>
+          <span className="grow">Today&apos;s reading: <b>{chapter}</b></span>
+          <button className="btn ghost sm" onClick={() => setReading(!reading)}>{reading ? "Close" : "Read"}</button>
+        </div>
+      )}
+      {!verse && !reading && <p className="small faint">Tap the verse that stands out and it becomes your verse of the day.</p>}
+      {reading && chapter && <Passage chapter={chapter} />}
     </section>
   );
 }
