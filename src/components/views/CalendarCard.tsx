@@ -5,20 +5,16 @@ import { fmtTime, type CalEvent } from "@/lib/life/calendar";
 import { api } from "../api";
 import { useApp } from "../App";
 import { useCalendar } from "../calendar";
-import { useFitness } from "../fitness";
-import { STATUS_LABEL } from "./Fitness";
 
 const timeLabel = (e: CalEvent) => (e.allDay ? "All day" : `${fmtTime(e.start!)}–${fmtTime(e.end!)}`);
 
-// The real week from Google Calendar with his planned workouts alongside. Workouts live in Kingdom;
+// The real week from Google Calendar. Workouts live in the Training tab, not here;
 // nothing here writes to Google.
-export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { days: string[]; onOpenWorkout: (id: string) => void; title?: string }) {
+export function CalendarWeek({ days, title = "Your week" }: { days: string[]; title?: string }) {
   const { today, go, reloadNet, toast } = useApp();
-  const { data: fit } = useFitness();
   const { cal, reload } = useCalendar(days[0], days.length);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const workoutsOn = (d: string) => fit.workouts.filter((w) => w.date === d);
   const header = (
     <div className="card-head"><h2>{title}</h2>
       {cal.state === "ok" && <span className="pill good">GOOGLE CALENDAR</span>}
@@ -39,7 +35,7 @@ export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { day
     <section className="card">
       {header}
       {cal.state === "loading" && <p className="small muted">Loading Google Calendar…</p>}
-      {cal.state === "off" && <p className="small muted">Your workouts are shown below. <button className="linkish" style={{ color: "var(--gold)" }} onClick={() => go("setup")}>Connect Google Calendar</button> (read-only) to see your events alongside them.</p>}
+      {cal.state === "off" && <p className="small muted"><button className="linkish" style={{ color: "var(--gold)" }} onClick={() => go("setup")}>Connect Google Calendar</button> (read-only) to see your week here.</p>}
       {cal.state === "expired" && <p className="small muted">Google stopped Kingdom&apos;s calendar access. <a href="/api/connections/calendar/start">Reconnect Google Calendar</a>.</p>}
       {cal.state === "error" && <p className="small muted">{cal.message} <button className="linkish" onClick={reload}>Try again</button></p>}
       {cal.state === "ok" && cal.needsReconnectForList && (
@@ -51,7 +47,6 @@ export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { day
         {days.map((d) => {
           const allDay = events.filter((e) => e.date === d && e.allDay);
           const timed = events.filter((e) => e.date === d && !e.allDay);
-          const ws = workoutsOn(d);
           return (
             <div key={d} className={`calday${d === today ? " today" : ""}${d < today ? " past" : ""}`}>
               <div className="calday-head">
@@ -63,18 +58,12 @@ export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { day
                   <i className="dot" style={{ background: e.color }} />{e.title}{e.multiDay ? <span className="faint small"> · multi-day</span> : null}
                 </div>
               ))}
-              {ws.map((w) => (
-                <button key={w.id} className="calev workout-ev linkish" onClick={() => onOpenWorkout(w.id)} title="Open this workout">
-                  <span className="num faint small">{w.kind === "lift" ? "Lift" : "Recovery"}</span>
-                  <span>{w.kind === "lift" ? `${w.title} · ${w.focus}` : `Light cardio ${w.cardioMin}–${w.cardioMax} min`} <span className="small faint">({STATUS_LABEL[w.status].toLowerCase()})</span></span>
-                </button>
-              ))}
               {timed.map((e) => (
                 <div key={`${e.calendarId}-${e.id}-${e.start}`} className={`calev${e.free ? " free" : ""}`} title={e.calendar}>
                   <span className="num faint small"><i className="dot" style={{ background: e.color }} /> {timeLabel(e)}</span> <span>{e.title}</span>
                 </div>
               ))}
-              {!allDay.length && !timed.length && !ws.length && <div className="small faint">Nothing scheduled</div>}
+              {!allDay.length && !timed.length && <div className="small faint">Nothing scheduled</div>}
             </div>
           );
         })}
