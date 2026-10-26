@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useApp } from "../App";
 import { FitnessProvider } from "../fitness";
 import Assistant from "./Assistant";
+import Insights from "./Insights";
 import CalendarView from "./CalendarView";
 import Fitness from "./Fitness";
 import Habits from "./Habits";
@@ -26,7 +27,7 @@ export default function Dashboard() {
           <nav className="jump" aria-label="Jump to section">
             {SECTIONS.map(([k, label]) => <a key={k} href={`#sec-${k}`} onClick={(e) => { e.preventDefault(); document.getElementById(`sec-${k}`)?.scrollIntoView({ block: "start", behavior: "smooth" }); }}>{label}</a>)}
           </nav>
-          <div className="sec"><Assistant /></div>
+          <div className="sec"><Insights /><Assistant /></div>
           <div id="sec-calendar" className="sec"><CalendarView onOpenWorkout={(id) => { setWorkout(id); window.scrollTo({ top: 0 }); }} /></div>
           <div id="sec-fitness" className="sec"><Fitness onOpen={(id) => { setWorkout(id); window.scrollTo({ top: 0 }); }} /></div>
           <div id="sec-habits" className="sec"><Habits /></div>
