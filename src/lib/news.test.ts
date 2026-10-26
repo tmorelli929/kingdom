@@ -21,3 +21,12 @@ test("without AI, the brief is the top headline per topic", () => {
   assert.deepEqual(b.stories.map((s) => s.title), ["a1", "b1"]);
   assert.deepEqual(b.quick.map((s) => s.title), ["a2"]);
 });
+
+test("reads Bing News feeds: real article link, source and picture", () => {
+  const xml = `<rss xmlns:News="https://www.bing.com/news/search?q=x&amp;format=rss"><channel><item><title>Nvidia expands networking push</title><link>http://www.bing.com/news/apiclick.aspx?ref=FexRss&amp;aid=&amp;tid=1&amp;url=https%3a%2f%2fwww.reuters.com%2ftech%2fnvidia&amp;c=1&amp;mkt=en-us</link><pubDate>Mon, 26 Oct 2026 12:00:00 GMT</pubDate><News:Source>Reuters</News:Source><News:Image>http://www.bing.com/th?id=OVFT.abc&amp;pid=News</News:Image></item><item><title>Odd image</title><link>https://example.com/a</link><News:Source>X</News:Source><News:Image>https://evil.example/pic.jpg</News:Image></item></channel></rss>`;
+  const h = parseFeed(xml, "AI");
+  assert.equal(h[0].url, "https://www.reuters.com/tech/nvidia");
+  assert.equal(h[0].source, "Reuters");
+  assert.match(h[0].image ?? "", /^https:\/\/www\.bing\.com\/th\?id=OVFT\.abc/);
+  assert.equal(h[1].image, undefined);
+});
