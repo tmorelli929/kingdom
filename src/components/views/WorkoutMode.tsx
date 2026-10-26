@@ -167,7 +167,7 @@ export default function WorkoutMode({ id, onClose }: { id: string; onClose: () =
   return (
     <div className="workout-mode">
       <section className="hero single stack-s">
-        <button className="btn ghost sm" style={{ justifySelf: "start" }} onClick={onClose}>‹ Fitness</button>
+        <button className="btn ghost sm" style={{ justifySelf: "start" }} onClick={onClose}>‹ Dashboard</button>
         <span className="eyebrow">{fmtShort(w.date)}{w.status === "completed" ? " · completed" : elapsed ? ` · ${elapsed}` : ""}</span>
         <h1>{w.title.toUpperCase()}{w.focus && w.kind === "lift" ? <span className="muted"> · {w.focus}</span> : null}</h1>
         {w.kind === "lift" && <div className="small muted num">{doneSets} of {totalSets} sets logged</div>}

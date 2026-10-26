@@ -1,29 +1,25 @@
 "use client";
 import { useState } from "react";
-import { addDays, fmtShort, weekDays, weekOf } from "@/lib/life/dates";
+import { addDays, fmtShort } from "@/lib/life/dates";
 import { useApp } from "../App";
-import { FitnessProvider } from "../fitness";
 import { CalendarWeek } from "./CalendarCard";
 
-export default function CalendarView() {
-  const { today, go } = useApp();
-  const [wk, setWk] = useState(() => weekOf(today));
+// Seven days starting today, so the top of the dashboard is always what's next.
+export default function CalendarView({ onOpenWorkout }: { onOpenWorkout: (id: string) => void }) {
+  const { today } = useApp();
+  const [start, setStart] = useState(today);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   return (
     <>
-      <section className="hero single stack-s">
-        <span className="eyebrow">Calendar</span>
-        <div className="card-head" style={{ margin: 0 }}>
-          <h1>Week of {fmtShort(wk)}</h1>
-          <div className="btns">
-            <button className="iconbtn" aria-label="Previous week" onClick={() => setWk(addDays(wk, -7))}>‹</button>
-            {wk !== weekOf(today) && <button className="btn ghost sm" onClick={() => setWk(weekOf(today))}>This week</button>}
-            <button className="iconbtn" aria-label="Next week" onClick={() => setWk(addDays(wk, 7))}>›</button>
-          </div>
+      <div className="sec-head">
+        <h2 className="sec-title">Calendar</h2>
+        <div className="btns">
+          <button className="iconbtn" aria-label="Previous 7 days" onClick={() => setStart(addDays(start, -7))}>‹</button>
+          {start !== today && <button className="btn ghost sm" onClick={() => setStart(today)}>Today</button>}
+          <button className="iconbtn" aria-label="Next 7 days" onClick={() => setStart(addDays(start, 7))}>›</button>
         </div>
-      </section>
-      <FitnessProvider fallback={<p className="muted">Loading…</p>}>
-        <CalendarWeek key={wk} days={weekDays(wk)} onOpenWorkout={() => go("fitness")} />
-      </FitnessProvider>
+      </div>
+      <CalendarWeek key={start} days={days} onOpenWorkout={onOpenWorkout} title={start === today ? "Next 7 days" : `${fmtShort(days[0])} – ${fmtShort(days[6])}`} />
     </>
   );
 }

@@ -7,18 +7,14 @@ import type { LifeDoc } from "@/lib/life/types";
 import { api, ApiError, tz } from "./api";
 import { Icon } from "./ui";
 import Onboarding from "./views/Onboarding";
-import Habits from "./views/Habits";
-import CalendarView from "./views/CalendarView";
-import Network from "./views/Network";
-import Fitness from "./views/Fitness";
+import Dashboard from "./views/Dashboard";
 import Setup from "./views/Setup";
 
-// Today, Week, Areas and Coach views still exist (src/components/views) but are hidden for now:
-// Thomas wants just habits, calendar and networking. Their data stays in the life doc.
+// Two pages: the dashboard (calendar, fitness, habits and network on one page) and settings.
+// `go` still takes a section name and scrolls the dashboard to it.
 export type Tab = "calendar" | "habits" | "network" | "fitness" | "setup";
-const TABS: [Tab, string, string][] = [
-  ["calendar", "Calendar", "cal"], ["habits", "Habits", "check"], ["network", "Network", "people"], ["fitness", "Fitness", "dumbbell"], ["setup", "Settings", "sliders"],
-];
+type Page = "home" | "setup";
+const PAGES: [Page, string, string][] = [["home", "Dashboard", "cal"], ["setup", "Settings", "sliders"]];
 
 type Ctx = {
   doc: LifeDoc;
@@ -48,7 +44,7 @@ export default function App({ email }: { email: string }) {
   const [doc, setDoc] = useState<LifeDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [net, setNet] = useState<NetworkData>(EMPTY_NET);
-  const [tab, setTab] = useState<Tab>("calendar");
+  const [page, setPage] = useState<Page>("home");
   const [person, setPerson] = useState<string | null>(null);
   const [area, setArea] = useState<string | null>(null);
   const [pendingAsk, setPendingAsk] = useState<string | null>(null);
@@ -127,8 +123,7 @@ export default function App({ email }: { email: string }) {
   useEffect(() => {
     load().catch(() => setLoaded(true));
     reloadNet();
-    const h = location.hash.slice(1) as Tab;
-    if (TABS.some((t) => t[0] === h)) setTab(h);
+    if (location.hash === "#setup") setPage("setup");
   }, [load, reloadNet]);
 
   // Pick up changes from another device when this one comes back into view.
@@ -149,12 +144,14 @@ export default function App({ email }: { email: string }) {
   }, [replaceDoc, reloadNet, flush]);
 
   const go = useCallback<Ctx["go"]>((t, opts) => {
-    setTab(t);
+    const p: Page = t === "setup" ? "setup" : "home";
+    setPage(p);
     setPerson(opts?.person ?? null);
     setArea(opts?.area ?? null);
     if (opts?.ask) setPendingAsk(opts.ask);
-    try { history.replaceState(null, "", "#" + t); } catch { /* ignore */ }
-    window.scrollTo({ top: 0 });
+    try { history.replaceState(null, "", p === "setup" ? "#setup" : location.pathname); } catch { /* ignore */ }
+    if (p === "home" && !opts?.person) setTimeout(() => document.getElementById(`sec-${t}`)?.scrollIntoView({ block: "start" }), 0);
+    else window.scrollTo({ top: 0 });
   }, []);
 
   if (!loaded) return <main className="wrap"><p className="muted" style={{ paddingTop: 40 }}>Loading your dashboard…</p></main>;
@@ -169,8 +166,8 @@ export default function App({ email }: { email: string }) {
           <span className="date">{fmtLong(today)}</span>
           <span className="spacer" />
           <nav className="tabs" aria-label="Sections">
-            {TABS.map(([k, label, ic]) => (
-              <button key={k} aria-current={tab === k ? "page" : undefined} onClick={() => go(k)}>
+            {PAGES.map(([k, label, ic]) => (
+              <button key={k} aria-current={page === k ? "page" : undefined} onClick={() => { setPage(k); setPerson(null); try { history.replaceState(null, "", k === "setup" ? "#setup" : location.pathname); } catch { /* ignore */ } window.scrollTo({ top: 0 }); }}>
                 <Icon name={ic} /><span>{label}</span>
               </button>
             ))}
@@ -179,11 +176,7 @@ export default function App({ email }: { email: string }) {
       </header>
       <main className="wrap">
         <div className="view">
-          {tab === "habits" && <Habits />}
-          {tab === "calendar" && <CalendarView />}
-          {tab === "network" && <Network />}
-          {tab === "fitness" && <Fitness />}
-          {tab === "setup" && <Setup />}
+          {page === "home" ? <Dashboard /> : <Setup />}
         </div>
       </main>
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}

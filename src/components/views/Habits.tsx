@@ -25,6 +25,7 @@ export default function Habits() {
   const [wk, setWk] = useState(() => weekOf(today));
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
   const days = weekDays(wk);
   const toggle = (k: string, hid: string) => mutate((x) => { const day = (x.days[k] ??= blankDay()); day.done[hid] = !day.done[hid]; });
   const due = doc.habits.filter((h) => scheduledOn(h, today));
@@ -41,10 +42,10 @@ export default function Habits() {
 
   return (
     <>
-      <section className="hero single stack-s">
-        <span className="eyebrow">Habits</span>
-        <h1>{!due.length ? "Nothing scheduled today." : todayCount === due.length ? "All done today." : `${todayCount} of ${due.length} done today`}</h1>
-      </section>
+      <div className="sec-head">
+        <h2 className="sec-title">Habits</h2>
+        <span className="small muted">{!due.length ? "Nothing scheduled today" : todayCount === due.length ? "All done today" : `${todayCount} of ${due.length} done today`}</span>
+      </div>
 
       <section className="card">
         <div className="card-head"><h2>Today</h2><button className="btn ghost sm" onClick={() => setEditing(!editing)}>{editing ? "Done editing" : "Edit habits"}</button></div>
@@ -132,8 +133,8 @@ export default function Habits() {
 
       {doc.habits.length > 0 && (
         <section className="card">
-          <div className="card-head"><h2>Last {WEEKS} weeks</h2></div>
-          <div className="stack">
+          <div className="card-head"><h2>Last {WEEKS} weeks</h2><button className="btn ghost sm" aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>{showHistory ? "Hide" : "Show"}</button></div>
+          {showHistory && <><div className="stack">
             {doc.habits.map((h) => {
               const four = consistency(doc, h, since(addDays(today, -27)), today, today);
               const twelve = consistency(doc, h, since(heatStart), today, today);
@@ -155,7 +156,7 @@ export default function Habits() {
               );
             })}
           </div>
-          <p className="small muted">Each column is a week, Monday at the top. Only scheduled days count, and a missed day never takes anything away.</p>
+          <p className="small muted">Each column is a week, Monday at the top. Only scheduled days count, and a missed day never takes anything away.</p></>}
         </section>
       )}
     </>
