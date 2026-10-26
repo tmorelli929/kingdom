@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordUsage } from "@/lib/usage";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { and, desc, eq, gte } from "drizzle-orm";
 import * as z from "zod/v4";
@@ -59,6 +60,7 @@ export const POST = authed(async (req, user) => {
       output_config: { effort: "medium", format: zodOutputFormat(Insights) },
       messages: [{ role: "user", content: `<my_data>\n${context}\n</my_data>\n\n${ASK}` }],
     });
+    await recordUsage(user.id, "insights", msg.usage);
     items = (msg.parsed_output?.insights ?? []).slice(0, 4);
   } catch (e) {
     console.error("insights failed:", e instanceof Error ? e.name : "unknown");

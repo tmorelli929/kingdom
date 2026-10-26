@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordUsage } from "@/lib/usage";
 import { and, desc, eq, gte, notInArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { COACH_SYSTEM } from "@/lib/coach";
@@ -98,6 +99,7 @@ export const POST = authed(async (req, user) => {
           }
         }
         const final = await s.finalMessage();
+        await recordUsage(user.id, "ask", final.usage);
         if (final.stop_reason === "refusal" && !text.trim()) {
           text = "I can't help with that one. Try asking another way.";
           controller.enqueue(encoder.encode(text));

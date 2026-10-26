@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordUsage } from "@/lib/usage";
 import * as z from "zod/v4";
 
 // A short daily news brief on the topics he picks. Claude searches the web; every link shown must be one
@@ -80,7 +81,7 @@ function collectUrls(blocks: Block[], into: Set<string>) {
   }
 }
 
-export async function fetchNews(apiKey: string, topics: string[], today: string, location: string, about: string): Promise<Brief> {
+export async function fetchNews(userId: string, apiKey: string, topics: string[], today: string, location: string, about: string): Promise<Brief> {
   const client = new Anthropic({ apiKey });
   const messages: Anthropic.Messages.MessageParam[] = [{
     role: "user",
@@ -95,6 +96,7 @@ export async function fetchNews(apiKey: string, topics: string[], today: string,
       tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 8 }],
       messages,
     } as Anthropic.Messages.MessageCreateParamsNonStreaming);
+    await recordUsage(userId, "news", msg.usage);
     const blocks = msg.content as unknown as Block[];
     collectUrls(blocks, urls);
     text = blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");

@@ -42,7 +42,7 @@ export const POST = authed(async (req, user) => {
   const today = todayIn(body.tz);
   let brief: Brief;
   try {
-    brief = await fetchNews(key, topics, today, (life.data.newsLocation ?? "").slice(0, 100), (life.data.newsAbout ?? "").slice(0, 600));
+    brief = await fetchNews(user.id, key, topics, today, (life.data.newsLocation ?? "").slice(0, 100), (life.data.newsAbout ?? "").slice(0, 600));
   } catch (e) {
     console.error("news failed:", e instanceof Error ? e.name : "unknown");
     return fail(502, e instanceof Anthropic.AuthenticationError ? "The Anthropic API key was rejected." : "Couldn't fetch news just now. Try again shortly.");
