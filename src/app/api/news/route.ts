@@ -6,9 +6,9 @@ import { env } from "@/lib/env";
 import { authed, fail, json, readJson } from "@/lib/http";
 import { todayIn } from "@/lib/life/dates";
 import { looksLikeLifeDoc } from "@/lib/life/migrate";
-import { fetchNews, type Brief } from "@/lib/news";
+import { fetchHeadlines, pickBrief, plainBrief, type Brief } from "@/lib/news";
 
-export const maxDuration = 120; // several web searches can take a minute or more
+export const maxDuration = 60;
 const DAILY_LIMIT = 6;
 type Stored = Brief & { date: string; topics: string[]; at: string };
 
@@ -23,13 +23,12 @@ async function latest(userId: string) {
 export const GET = authed(async (req, user) => {
   const tz = new URL(req.url).searchParams.get("tz") ?? undefined;
   const cur = await latest(user.id);
-  return json({ configured: !!env().ANTHROPIC_API_KEY, news: cur && cur.date === todayIn(tz) ? cur : null, stale: cur && cur.date !== todayIn(tz) ? cur : null });
+  return json({ configured: true, news: cur && cur.date === todayIn(tz) ? cur : null, stale: cur && cur.date !== todayIn(tz) ? cur : null });
 });
 
 // POST { tz }: searches the web for today's news on his topics.
 export const POST = authed(async (req, user) => {
   const key = env().ANTHROPIC_API_KEY;
-  if (!key) return fail(503, "News needs an Anthropic API key in the app's hosting settings.");
   const body = z.object({ tz: z.string().max(64).optional() }).parse(await readJson(req));
   const made = await db.select({ id: schema.coachMessages.id }).from(schema.coachMessages)
     .where(and(eq(schema.coachMessages.userId, user.id), eq(schema.coachMessages.kind, "news"), gte(schema.coachMessages.createdAt, new Date(Date.now() - 86400000))));
@@ -42,7 +41,12 @@ export const POST = authed(async (req, user) => {
   const today = todayIn(body.tz);
   let brief: Brief;
   try {
-    brief = await fetchNews(user.id, key, topics, today, (life.data.newsLocation ?? "").slice(0, 100), (life.data.newsAbout ?? "").slice(0, 600));
+    const all = await fetchHeadlines(topics, (life.data.newsLocation ?? "").slice(0, 100));
+    if (!all.length) return fail(502, "Couldn't reach the news feeds just now. Try again shortly.");
+    brief = key ? await pickBrief(user.id, key, all, today, (life.data.newsAbout ?? "").slice(0, 600)).catch((e) => {
+      if (e instanceof Anthropic.AuthenticationError) throw e;
+      return plainBrief(all);
+    }) : plainBrief(all);
   } catch (e) {
     console.error("news failed:", e instanceof Error ? e.name : "unknown");
     return fail(502, e instanceof Anthropic.AuthenticationError ? "The Anthropic API key was rejected." : "Couldn't fetch news just now. Try again shortly.");

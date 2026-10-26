@@ -38,7 +38,7 @@ export default function News() {
       </div>
       {!state.configured && <p className="small muted">News needs an Anthropic API key. Once it&apos;s added, you&apos;ll get a five-minute brief each day on topics you choose.</p>}
       {state.configured && !hasTopics && <p className="small muted">Pick what you want news about in <button className="linkish" onClick={() => go("setup")}>Settings</button>, like your industry, your city, or teams you follow.</p>}
-      {state.configured && hasTopics && busy && <p className="small muted">Searching today&apos;s news on your topics. This takes about a minute…</p>}
+      {state.configured && hasTopics && busy && <p className="small muted">Gathering today&apos;s headlines…</p>}
       {error && <p className="small caution">{error}</p>}
       {shown && (
         <div className="stack-s">
@@ -59,7 +59,7 @@ export default function News() {
             </div>
           ))}
           {!shown.stories.length && <p className="small muted">Nothing new on your topics today.</p>}
-          {(!!shown.quick?.length || shown.bigIdea || shown.starter) && !more && <button className="btn ghost sm" onClick={() => setMore(true)}>More: quick headlines, big idea, conversation starter</button>}
+          {(!!shown.quick?.length || shown.bigIdea || shown.starter) && !more && <button className="btn ghost sm" onClick={() => setMore(true)}>More headlines</button>}
           {more && !!shown.quick?.length && (
             <div className="brief-extra">
               <span className="eyebrow">Worth knowing</span>

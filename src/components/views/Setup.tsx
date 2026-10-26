@@ -211,7 +211,7 @@ export default function Setup() {
 
       <section className="card stack-s">
         <h2>News</h2>
-        <p className="small muted">A five-minute brief each morning: 5 stories, 3 quick headlines and a conversation starter, found with a web search. One topic per line, most important first.</p>
+        <p className="small muted">A five-minute brief each morning: 5 stories with why they matter to you, plus 3 quick headlines, picked from Google News. One topic per line, most important first.</p>
         <textarea className="in" id="news-topics" rows={6} defaultValue={(doc.newsTopics ?? []).join("\n")} placeholder={"Enterprise tech sales\nAI in business\nRaleigh–Durham\nStrength training research"}
           onBlur={(e) => { const v = e.target.value.split("\n").map((t) => t.trim()).filter(Boolean).slice(0, 12); mutate((d) => { d.newsTopics = v; }); }} />
         <label className="field"><span className="lab">Where you live (for local news)</span>
