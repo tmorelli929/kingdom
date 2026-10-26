@@ -8,6 +8,7 @@ import { api, ApiError, tz } from "./api";
 import { Icon } from "./ui";
 import Onboarding from "./views/Onboarding";
 import Dashboard from "./views/Dashboard";
+import { Welcome } from "./views/Today";
 import { FitnessProvider } from "./fitness";
 import Setup from "./views/Setup";
 
@@ -32,6 +33,7 @@ type Ctx = {
   area: string | null;
   pendingAsk: string | null;
   clearAsk: () => void;
+  openWelcome: () => void;
   email: string;
 };
 const AppCtx = createContext<Ctx | null>(null);
@@ -48,6 +50,7 @@ export default function App({ email }: { email: string }) {
   const [loaded, setLoaded] = useState(false);
   const [net, setNet] = useState<NetworkData>(EMPTY_NET);
   const [page, setPage] = useState<Page>("today");
+  const [welcome, setWelcome] = useState(true); // every app open starts on the welcome screen
   const [navN, setNavN] = useState(0); // bumps on every tab tap, so tapping a tab always closes an open workout
   const [person, setPerson] = useState<string | null>(null);
   const [area, setArea] = useState<string | null>(null);
@@ -131,6 +134,7 @@ export default function App({ email }: { email: string }) {
     api<{ updated?: number }>("/api/connections/gmail/sync", "POST", { tz: tz(), ifStale: true })
       .then((r) => { if (r.updated) reloadNet(); }).catch(() => { /* shown in Settings */ });
     setPage(pageFromHash());
+    if (location.hash.length > 1) setWelcome(false);
   }, [load, reloadNet]);
 
   // Pick up changes from another device when this one comes back into view.
@@ -154,6 +158,7 @@ export default function App({ email }: { email: string }) {
     const p = PAGE_FOR[t];
     setPage(p);
     setNavN((n) => n + 1);
+    setWelcome(false);
     setPerson(opts?.person ?? null);
     setArea(opts?.area ?? null);
     if (opts?.ask) setPendingAsk(opts.ask);
@@ -164,9 +169,10 @@ export default function App({ email }: { email: string }) {
   if (!loaded) return <main className="wrap"><p className="muted" style={{ paddingTop: 40 }}>Loading your dashboard…</p></main>;
   if (!doc) return <Onboarding onReady={(d, v) => replaceDoc(d, v)} email={email} />;
 
-  const ctx: Ctx = { doc, today, mutate, replaceDoc, net, reloadNet, toast, go, person, area, pendingAsk, clearAsk: () => setPendingAsk(null), email };
+  const ctx: Ctx = { doc, today, mutate, replaceDoc, net, reloadNet, toast, go, person, area, pendingAsk, clearAsk: () => setPendingAsk(null), email, openWelcome: () => { setWelcome(true); window.scrollTo({ top: 0 }); } };
   return (
     <AppCtx.Provider value={ctx}>
+      {welcome ? <Welcome onOpen={() => go("today")} /> : <>
       <header className="top">
         <div className="top-inner">
           <span className="brand">KINGDOM</span>
@@ -190,6 +196,7 @@ export default function App({ email }: { email: string }) {
           )}
         </div>
       </main>
+      </>}
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
     </AppCtx.Provider>
   );
