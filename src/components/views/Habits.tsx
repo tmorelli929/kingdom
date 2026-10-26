@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { addDays, DOW, fmtShort, weekDays, weekOf } from "@/lib/life/dates";
 import { uid } from "@/lib/life/defaults";
-import { consistency, DAY_LETTERS, doneOn, scheduledOn, scheduleLabel, streak } from "@/lib/life/habits";
+import { consistency, DAY_LETTERS, doneOn, firstLoggedDay, scheduledOn, scheduleLabel, streak } from "@/lib/life/habits";
 import type { Habit } from "@/lib/life/types";
 import { useApp } from "../App";
 import { Check, Icon } from "../ui";
@@ -37,7 +37,7 @@ export default function Habits() {
   const heatStart = addDays(weekOf(today), -7 * (WEEKS - 1));
   const heatDays = Array.from({ length: WEEKS * 7 }, (_, i) => addDays(heatStart, i));
   // Percentages start from the first day he logged anything, so weeks before he used the app don't count as misses.
-  const firstLogged = Object.keys(doc.days).filter((k) => Object.values(doc.days[k]?.done ?? {}).some(Boolean)).sort()[0] ?? today;
+  const firstLogged = firstLoggedDay(doc, today);
   const since = (k: string) => (k > firstLogged ? k : firstLogged);
 
   return (

@@ -5,9 +5,10 @@ import { buildContext, COACH_SYSTEM, type CalendarContext } from "@/lib/coach";
 import { CalendarExpired, fetchEvents, getConnection } from "@/lib/google-calendar";
 import { env } from "@/lib/env";
 import { authed, fail, json, readJson } from "@/lib/http";
-import { timeIn, todayIn, weekOf } from "@/lib/life/dates";
+import { timeIn, todayIn } from "@/lib/life/dates";
 import { looksLikeLifeDoc } from "@/lib/life/migrate";
 import { loadNetwork } from "@/lib/network-db";
+import { loadFitness } from "@/lib/fitness-db";
 
 const MODEL = "claude-opus-5-5";
 const HOURLY_LIMIT = 40;
@@ -32,22 +33,27 @@ export const GET = authed(async (_req, user) => {
 // POST { mode: "chat" | "brief", message?, tz }: streams the coach's reply as plain text.
 export const POST = authed(async (req, user) => {
   const key = env().ANTHROPIC_API_KEY;
-  if (!key) return fail(503, "The coach isn't set up yet. Add ANTHROPIC_API_KEY in your hosting settings.");
+  if (!key) return fail(503, "The assistant isn't set up yet: it needs an Anthropic API key in the app's hosting settings.");
   const body = (await readJson(req)) as { mode?: string; message?: string; tz?: string };
   const mode = body.mode === "brief" ? "brief" : "chat";
   const message = (body.message ?? "").trim().slice(0, 4000);
-  if (mode === "chat" && !message) return fail(400, "Type a question for your coach.");
+  if (mode === "chat" && !message) return fail(400, "Type a question.");
 
   const recent = await db
     .select({ id: schema.coachMessages.id })
     .from(schema.coachMessages)
     .where(and(eq(schema.coachMessages.userId, user.id), eq(schema.coachMessages.role, "user"), gte(schema.coachMessages.createdAt, new Date(Date.now() - 3600_000))));
-  if (recent.length >= HOURLY_LIMIT) return fail(429, "That's a lot of coaching for one hour. Try again a bit later.");
+  if (recent.length >= HOURLY_LIMIT) return fail(429, "That's a lot of questions for one hour. Try again a bit later.");
 
   const [life] = await db.select().from(schema.lifeDocs).where(eq(schema.lifeDocs.userId, user.id)).limit(1);
   if (!life || !looksLikeLifeDoc(life.data)) return fail(400, "Set up your dashboard first.");
   const today = todayIn(body.tz);
-  const context = buildContext(life.data, await loadNetwork(user.id), today, timeIn(body.tz), message, await calendarFor(user.id, life.data.coachAccess?.calendar !== false, today, body.tz));
+  const [net, fit, cal] = await Promise.all([
+    loadNetwork(user.id),
+    loadFitness(user.id).catch(() => null),
+    calendarFor(user.id, life.data.coachAccess?.calendar !== false, today, body.tz),
+  ]);
+  const context = buildContext(life.data, net, fit, today, timeIn(body.tz), message, cal);
 
   const history = mode === "chat"
     ? (await db
@@ -60,7 +66,7 @@ export const POST = authed(async (req, user) => {
   while (history.length && history[0].role !== "user") history.shift();
 
   const ask = mode === "brief"
-    ? "Give me today's read in 2 to 4 sentences: the one pattern that matters most right now, and what to protect today. Name a specific time or person if the data supports it."
+    ? "Give me today's rundown in 2 to 4 sentences: what's on today (workout, key events, habits still due), and the one thing worth doing about a person if anything is due. Only use what's in the data."
     : message;
   const messages: Anthropic.Messages.MessageParam[] = [
     ...history.map((m) => ({ role: m.role === "user" ? ("user" as const) : ("assistant" as const), content: m.content })),
@@ -106,9 +112,9 @@ export const POST = authed(async (req, user) => {
           controller.enqueue(encoder.encode(text));
         }
       } catch (e) {
-        const note = e instanceof Anthropic.RateLimitError ? "The coach is busy right now. Try again in a minute."
-          : e instanceof Anthropic.AuthenticationError ? "The coach's API key was rejected. Check ANTHROPIC_API_KEY."
-          : "The coach couldn't answer just now. Try again shortly.";
+        const note = e instanceof Anthropic.RateLimitError ? "The assistant is busy right now. Try again in a minute."
+          : e instanceof Anthropic.AuthenticationError ? "The assistant's API key was rejected. Check it in the hosting settings."
+          : "The assistant couldn't answer just now. Try again shortly.";
         failed = true;
         console.error("coach failed:", e instanceof Error ? e.name : "unknown");
         text += (text ? "\n\n" : "") + note;
@@ -121,7 +127,7 @@ export const POST = authed(async (req, user) => {
   return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
 });
 
-// This week and the next 7 days of calendar, if connected and shared. A calendar problem never blocks the coach.
+// Today and the next 13 days of calendar, if connected and shared. A calendar problem never blocks the assistant.
 async function calendarFor(userId: string, allowed: boolean, today: string, tz?: string): Promise<CalendarContext> {
   const c = await getConnection(userId);
   if (!c) return { status: "none" };
@@ -129,9 +135,8 @@ async function calendarFor(userId: string, allowed: boolean, today: string, tz?:
   if (c.status !== "ok") return { status: "expired" };
   const zone = tz || "UTC";
   try { new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { return { status: "error" }; }
-  const from = weekOf(today);
   try {
-    return { status: "ok", events: (await fetchEvents(c, from, 14, zone)).events };
+    return { status: "ok", events: (await fetchEvents(c, today, 14, zone)).events };
   } catch (e) {
     return { status: e instanceof CalendarExpired ? "expired" : "error" };
   }
