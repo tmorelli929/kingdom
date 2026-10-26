@@ -15,20 +15,17 @@ import Now from "./Now";
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; };
 
-// The daily flow, top to bottom: scripture and verse of the day, news, what this block is for, the day at a glance,
+// The dashboard's daily flow, after the welcome screen: what this block is for, the day at a glance,
 // who to follow up with, then the week ahead.
 export default function Today({ onOpenWorkout }: { onOpenWorkout: (id: string) => void }) {
-  const { doc, today } = useApp();
+  const { today, openWelcome } = useApp();
   const { cal } = useCalendar(today, 1);
-  const first = doc.name?.split(" ")[0];
   return (
     <div className="today">
-      <div className="hello">
-        <h1>{greeting()}{first ? `, ${first}` : ""}</h1>
-        <p className="muted">{fmtLong(today)}</p>
+      <div className="hello row-wrap" style={{ alignItems: "center" }}>
+        <h1 className="grow">Today</h1>
+        <button className="btn ghost sm" onClick={openWelcome}>Verse &amp; news</button>
       </div>
-      <Scripture />
-      <News />
       <Now cal={cal} onOpenWorkout={onOpenWorkout} />
       <DayPlan cal={cal} />
       <FollowUps />
@@ -94,6 +91,22 @@ function FollowUps() {
         </button>
       ))}
     </section>
+  );
+}
+
+export function Welcome({ onOpen }: { onOpen: () => void }) {
+  const { doc, today } = useApp();
+  const first = doc.name?.split(" ")[0];
+  return (
+    <main className="wrap welcome">
+      <div className="hello">
+        <h1>{greeting()}{first ? `, ${first}` : ""}</h1>
+        <p className="muted">{fmtLong(today)}</p>
+      </div>
+      <Scripture />
+      <News />
+      <button className="btn primary big welcome-go" onClick={onOpen}>Open Kingdom dashboard</button>
+    </main>
   );
 }
 
