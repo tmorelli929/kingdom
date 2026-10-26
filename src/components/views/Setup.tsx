@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { uid } from "@/lib/life/defaults";
 import { METRIC_LABEL } from "@/lib/life/network";
 import type { NetworkMetric } from "@/lib/life/types";
-import { api } from "../api";
+import { api, tz } from "../api";
 import { useApp } from "../App";
 import { Icon } from "../ui";
 import { ImportCard } from "./Onboarding";
@@ -15,10 +15,17 @@ const CAL_RESULT: Record<string, string> = {
   failed: "Google didn't finish connecting the calendar. Try again.",
 };
 
-const CONNECTIONS = [
-  { name: "Gmail", icon: "chat", status: "Phase 4", text: "Coming later. Read-only, limited to labels and senders you choose. Never sends email." },
-  { name: "LinkedIn", icon: "people", status: "Manual", text: "LinkedIn doesn't let personal apps read connections, messages or analytics. Save profile URLs on each person now; a Connections.csv import from LinkedIn's own data export comes in Phase 5." },
-];
+const GMAIL_RESULT: Record<string, string> = {
+  connected: "Gmail connected. Checking recent mail for people in your network…",
+  denied: "Gmail wasn't connected: Kingdom needs the \"view your email message metadata\" permission. Try again and leave it checked.",
+  work: "That's a work account, so Kingdom didn't connect it. Use your personal Gmail.",
+  cancelled: "Gmail connection was cancelled.",
+  failed: "Google didn't finish connecting Gmail. Try again.",
+};
+const fmtSynced = (iso: string) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+type GmailConn = { email: string; status: string; lastSyncedAt: string | null };
+type LinkedInPreview = { total: number; update: number; add: number; unchanged: number; sample: string[] };
 
 type CalConn = {
   email: string; status: string; lastSyncedAt: string | null; canList: boolean;
@@ -26,24 +33,66 @@ type CalConn = {
 };
 
 export default function Setup() {
-  const { doc, mutate, replaceDoc, toast, email } = useApp();
+  const { doc, mutate, replaceDoc, toast, email, reloadNet } = useApp();
   const [newCat, setNewCat] = useState("");
   const [newGoal, setNewGoal] = useState<{ title: string; metric: NetworkMetric; target: number; period: "week" | "month"; areaId: string }>({ title: "", metric: "conversations", target: 1, period: "month", areaId: "career" });
   const [delStep, setDelStep] = useState(0);
   const [delText, setDelText] = useState("");
   const [calConn, setCalConn] = useState<CalConn | null | undefined>(undefined);
-  const loadConn = () => api<{ calendar: CalConn | null }>("/api/connections").then((r) => setCalConn(r.calendar)).catch(() => setCalConn(null));
+  const [gmail, setGmail] = useState<GmailConn | null | undefined>(undefined);
+  const [gmailBusy, setGmailBusy] = useState(false);
+  const [li, setLi] = useState<{ csv: string; preview: LinkedInPreview } | null>(null);
+  const [liBusy, setLiBusy] = useState(false);
+  const loadConn = () => api<{ calendar: CalConn | null; gmail: GmailConn | null }>("/api/connections")
+    .then((r) => { setCalConn(r.calendar); setGmail(r.gmail); }).catch(() => { setCalConn(null); setGmail(null); });
+  const syncGmail = async () => {
+    setGmailBusy(true);
+    try {
+      const r = await api<{ expired?: boolean; scanned: number; updated: number; skipped?: string }>("/api/connections/gmail/sync", "POST", { tz: tz() });
+      if (r.expired) toast("Gmail access expired. Reconnect it below.");
+      else if (r.skipped === "no-emails") toast("None of your network has an email address saved yet, so there was nothing to match.");
+      else toast(`Checked ${r.scanned} new email${r.scanned === 1 ? "" : "s"}; updated last contact for ${r.updated} ${r.updated === 1 ? "person" : "people"}.`);
+      await Promise.all([loadConn(), reloadNet()]);
+    } catch (e) { toast(e instanceof Error ? e.message : "Gmail sync failed."); }
+    finally { setGmailBusy(false); }
+  };
+  const disconnectGmail = async () => {
+    try { await api("/api/connections", "DELETE", { provider: "gmail" }); setGmail(null); await reloadNet(); toast("Gmail disconnected, access revoked, and email dates cleared."); }
+    catch (e) { toast(e instanceof Error ? e.message : "Couldn't disconnect."); }
+  };
+  const pickLinkedIn = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 1_900_000) { toast("That file is too large. Export just Connections from LinkedIn."); return; }
+    setLiBusy(true);
+    try {
+      const csv = await file.text();
+      setLi({ csv, preview: await api<LinkedInPreview>("/api/import/linkedin", "POST", { csv }) });
+    } catch (e) { toast(e instanceof Error ? e.message : "Couldn't read that file."); }
+    finally { setLiBusy(false); }
+  };
+  const importLinkedIn = async (addNew: boolean) => {
+    if (!li) return;
+    setLiBusy(true);
+    try {
+      const r = await api<{ added: number; updated: number }>("/api/import/linkedin", "POST", { csv: li.csv, apply: true, addNew });
+      toast(`LinkedIn import done: ${r.updated} updated${addNew ? `, ${r.added} added` : ""}.`);
+      setLi(null);
+      await reloadNet();
+    } catch (e) { toast(e instanceof Error ? e.message : "Import failed."); }
+    finally { setLiBusy(false); }
+  };
   const toggleCal = async (id: string, on: boolean) => {
     setCalConn((c) => c && { ...c, calendars: c.calendars.map((x) => (x.id === id ? { ...x, selected: on } : x)) });
     try { await api("/api/connections", "PATCH", { calendars: { [id]: on } }); } catch (e) { toast(e instanceof Error ? e.message : "Not saved."); loadConn(); }
   };
   useEffect(() => {
     loadConn();
-    const q = new URLSearchParams(location.search).get("calendar");
-    if (q) {
-      toast(CAL_RESULT[q] ?? "Calendar connection finished.");
-      history.replaceState(null, "", "/#setup");
-    }
+    const params = new URLSearchParams(location.search);
+    const q = params.get("calendar"), g = params.get("gmail");
+    if (q) toast(CAL_RESULT[q] ?? "Calendar connection finished.");
+    if (g) toast(GMAIL_RESULT[g] ?? "Gmail connection finished.");
+    if (q || g) history.replaceState(null, "", "/#setup");
+    if (g === "connected") syncGmail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const disconnectCal = async () => {
@@ -89,13 +138,50 @@ export default function Setup() {
           </div>
           <span className={`pill ${calConn?.status === "ok" ? "good" : calConn ? "warn" : "info"}`}>{calConn?.status === "ok" ? "CONNECTED" : calConn ? "EXPIRED" : "OFF"}</span>
         </div>
-        {CONNECTIONS.map((c) => (
-          <div className="conn" key={c.name}>
-            <span className="avatar"><Icon name={c.icon} /></span>
-            <div style={{ minWidth: 0 }}><b>{c.name}</b><p className="small muted">{c.text}</p></div>
-            <span className="pill info">{c.status.toUpperCase()}</span>
+        <div className="conn">
+          <span className="avatar"><Icon name="chat" /></span>
+          <div style={{ minWidth: 0 }}>
+            <b>Gmail</b>
+            <p className="small muted">
+              {gmail?.status === "ok" ? `Connected as ${gmail.email}${gmail.lastSyncedAt ? `, last checked ${fmtSynced(gmail.lastSyncedAt)}` : ""}. `
+                : gmail?.status === "expired" ? "Google stopped Kingdom's access. Reconnect to keep last-contact dates current. " : ""}
+              Kingdom reads only who each email was from and to, and when. Never message text, subjects or attachments, and it never sends anything. It updates &quot;last contact&quot; for people in your network who have an email address saved. Personal Gmail only.
+            </p>
+            {gmail !== undefined && (
+              <div className="btns" style={{ marginTop: 6 }}>
+                {gmail?.status !== "ok" && <a className="btn primary" href="/api/connections/gmail/start">{gmail ? "Reconnect" : "Connect Gmail"}</a>}
+                {gmail?.status === "ok" && <button className="btn" disabled={gmailBusy} onClick={syncGmail}>{gmailBusy ? "Checking…" : "Check now"}</button>}
+                {gmail && <button className="btn ghost" onClick={disconnectGmail}>Disconnect</button>}
+              </div>
+            )}
           </div>
-        ))}
+          <span className={`pill ${gmail?.status === "ok" ? "good" : gmail ? "warn" : "info"}`}>{gmail?.status === "ok" ? "CONNECTED" : gmail ? "EXPIRED" : "OFF"}</span>
+        </div>
+        <div className="conn">
+          <span className="avatar"><Icon name="people" /></span>
+          <div style={{ minWidth: 0 }} className="stack-s">
+            <b>LinkedIn</b>
+            <p className="small muted">LinkedIn doesn&apos;t let personal apps read your connections, so there&apos;s no live link. Instead, import the Connections.csv from <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noreferrer">LinkedIn&apos;s data export</a>. People already in your network get blank fields filled in (company, title, profile link, email); nothing you wrote is overwritten.</p>
+            {!li && (
+              <label className="btn" style={{ justifySelf: "start" }}>
+                {liBusy ? "Reading…" : "Choose Connections.csv"}
+                <input type="file" accept=".csv,text/csv" hidden disabled={liBusy} onChange={(e) => { pickLinkedIn(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+            )}
+            {li && (
+              <div className="stack-s">
+                <p className="small">{li.preview.total} connections in the file. {li.preview.update} people in your network will get details filled in, {li.preview.unchanged} already match, and {li.preview.add} aren&apos;t in your network yet.</p>
+                {li.preview.sample.length > 0 && <p className="small muted">New, for example: {li.preview.sample.join("; ")}</p>}
+                <div className="btns">
+                  <button className="btn primary" disabled={liBusy} onClick={() => importLinkedIn(false)}>Update existing only</button>
+                  {li.preview.add > 0 && <button className="btn" disabled={liBusy} onClick={() => importLinkedIn(true)}>Also add {li.preview.add} new people</button>}
+                  <button className="btn ghost" disabled={liBusy} onClick={() => setLi(null)}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+          <span className="pill info">IMPORT</span>
+        </div>
         <p className="small muted">Kingdom is personal. It will never connect to Cisco accounts, work email, customer data or internal systems.</p>
       </section>
 

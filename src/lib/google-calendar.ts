@@ -19,14 +19,14 @@ export type CalendarProblem = { calendar: string; message: string };
 export const canListCalendars = (c: Connection) => c.scope.split(" ").some((s) => s.endsWith("/calendar.calendarlist.readonly"));
 export const calendarsOf = (c: Connection) => (c.calendars as CalendarInfo[]) ?? [];
 
-export async function getConnection(userId: string) {
-  const [row] = await db.select().from(schema.connections).where(and(eq(schema.connections.userId, userId), eq(schema.connections.provider, PROVIDER))).limit(1);
+export async function getConnection(userId: string, provider = PROVIDER) {
+  const [row] = await db.select().from(schema.connections).where(and(eq(schema.connections.userId, userId), eq(schema.connections.provider, provider))).limit(1);
   return row ?? null;
 }
 
-export async function saveConnection(userId: string, v: { refreshToken: string; accessToken: string; expiresAt: Date; scope: string; accountEmail: string }) {
+export async function saveConnection(userId: string, v: { refreshToken: string; accessToken: string; expiresAt: Date; scope: string; accountEmail: string }, provider = PROVIDER) {
   const values = {
-    userId, provider: PROVIDER, accountEmail: v.accountEmail, scope: v.scope, status: "ok",
+    userId, provider, accountEmail: v.accountEmail, scope: v.scope, status: "ok",
     refreshToken: seal(v.refreshToken), accessToken: seal(v.accessToken), accessExpiresAt: v.expiresAt,
   };
   // Reconnecting keeps his calendar choices and dismissed suggestions.
@@ -42,7 +42,8 @@ async function markExpired(c: Connection) {
   await db.update(schema.connections).set({ status: "expired", accessToken: null }).where(eq(schema.connections.id, c.id));
 }
 
-async function accessToken(c: Connection) {
+// A fresh access token for any Google connection (Calendar or Gmail), refreshing it when needed.
+export async function accessToken(c: Connection) {
   if (c.accessToken && c.accessExpiresAt && c.accessExpiresAt.getTime() > Date.now() + 60_000) return open(c.accessToken);
   try {
     const t = await googleClient().refreshAccessToken(open(c.refreshToken));
@@ -52,7 +53,7 @@ async function accessToken(c: Connection) {
   } catch {
     // Google refused the refresh token (revoked, or expired while the app was in Testing).
     await markExpired(c);
-    throw new CalendarExpired("Calendar access expired. Reconnect it in Settings.");
+    throw new CalendarExpired(`${c.provider === "gmail" ? "Gmail" : "Calendar"} access expired. Reconnect it in Settings.`);
   }
 }
 

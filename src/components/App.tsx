@@ -123,6 +123,9 @@ export default function App({ email }: { email: string }) {
   useEffect(() => {
     load().catch(() => setLoaded(true));
     reloadNet();
+    // If Gmail is connected and hasn't been checked in the last hour, refresh last-contact dates quietly.
+    api<{ updated?: number }>("/api/connections/gmail/sync", "POST", { tz: tz(), ifStale: true })
+      .then((r) => { if (r.updated) reloadNet(); }).catch(() => { /* shown in Settings */ });
     if (location.hash === "#setup") setPage("setup");
   }, [load, reloadNet]);
 
