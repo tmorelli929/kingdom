@@ -18,6 +18,7 @@ export const GET = authed(async (_req, user) => {
     fitness: await loadFitness(user.id),
     coach,
     imports,
+    digestSuggestions: await db.select({ personName: schema.suggestions.personName, occurredOn: schema.suggestions.occurredOn, kind: schema.suggestions.kind, summary: schema.suggestions.summary, followUp: schema.suggestions.followUp, status: schema.suggestions.status }).from(schema.suggestions).where(eq(schema.suggestions.userId, user.id)),
     // Which accounts are connected. Tokens are never exported.
     connections: (await db.select({ provider: schema.connections.provider, accountEmail: schema.connections.accountEmail, scope: schema.connections.scope, createdAt: schema.connections.createdAt }).from(schema.connections).where(eq(schema.connections.userId, user.id))),
   };

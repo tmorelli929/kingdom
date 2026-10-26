@@ -131,9 +131,34 @@ export const connections = pgTable(
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     // Gmail: newest message time (ms) already scanned, so each sync only reads newer mail.
     cursor: text("cursor"),
+    // Gmail daily digest: the label to read (only messages under it are ever opened) and the newest one handled (ms).
+    digestLabel: text("digest_label"),
+    digestCursor: text("digest_cursor"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("connections_user_provider_idx").on(t.userId, t.provider)],
+);
+
+// Network updates proposed from his daily digest email. Nothing is applied until he approves it.
+// The email itself is never stored; only these extracted lines are.
+export const suggestions = pgTable(
+  "suggestions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    source: text("source").notNull(), // "digest"
+    sourceId: text("source_id").notNull(), // Gmail message id
+    ord: integer("ord").notNull(),
+    personName: text("person_name").notNull(),
+    personId: uuid("person_id").references(() => people.id, { onDelete: "set null" }),
+    occurredOn: date("occurred_on").notNull(),
+    kind: text("kind").notNull().default("conversation"),
+    summary: text("summary").notNull().default(""),
+    followUp: text("follow_up").notNull().default(""),
+    status: text("status").notNull().default("pending"), // pending | applied | dismissed
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("suggestions_source_idx").on(t.userId, t.source, t.sourceId, t.ord), index("suggestions_user_status_idx").on(t.userId, t.status)],
 );
 
 /* ---------- Fitness ---------- */

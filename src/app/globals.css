@@ -305,3 +305,8 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .hchart-bar { fill: var(--green); opacity: .85; cursor: pointer }
 .hchart-bar.on { opacity: 1 }
 .hchart-zero { stroke: var(--faint); stroke-width: 2 }
+
+/* Digest suggestions */
+.sugg { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line) }
+.sugg-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.sugg-head select { flex: 1 1 200px; min-width: 0 }

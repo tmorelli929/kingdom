@@ -1,12 +1,15 @@
 import { z } from "zod";
 import { CalendarExpired, calendarsOf, canListCalendars, disconnect, getConnection, refreshCalendarList, setSelected } from "@/lib/google-calendar";
+import { canReadDigest, DEFAULT_LABEL } from "@/lib/digest";
 import { disconnectGmail, getGmail } from "@/lib/gmail";
+import { db, schema } from "@/db";
+import { eq } from "drizzle-orm";
 import { authed, fail, json, readJson } from "@/lib/http";
 
 // What's connected, and which of his Google calendars are included. Tokens never leave the server.
 export const GET = authed(async (_req, user) => {
   const g = await getGmail(user.id);
-  const gmail = g ? { email: g.accountEmail, status: g.status, lastSyncedAt: g.lastSyncedAt } : null;
+  const gmail = g ? { email: g.accountEmail, status: g.status, lastSyncedAt: g.lastSyncedAt, digest: canReadDigest(g), digestLabel: g.digestLabel || DEFAULT_LABEL } : null;
   const c = await getConnection(user.id);
   if (!c) return json({ calendar: null, gmail });
   let calendars = calendarsOf(c);
@@ -21,8 +24,17 @@ export const GET = authed(async (_req, user) => {
 });
 
 // PATCH { calendars: { [calendarId]: boolean } }: choose which calendars to include.
+// PATCH { digestLabel }: the Gmail label that holds his daily digest emails.
 export const PATCH = authed(async (req, user) => {
-  const body = z.object({ calendars: z.record(z.string().max(300), z.boolean()) }).parse(await readJson(req));
+  const raw = await readJson(req);
+  const label = z.object({ digestLabel: z.string().trim().min(1).max(100) }).safeParse(raw);
+  if (label.success) {
+    const g = await getGmail(user.id);
+    if (!g) return fail(404, "Gmail isn't connected.");
+    await db.update(schema.connections).set({ digestLabel: label.data.digestLabel }).where(eq(schema.connections.id, g.id));
+    return json({ ok: true });
+  }
+  const body = z.object({ calendars: z.record(z.string().max(300), z.boolean()) }).parse(raw);
   const c = await getConnection(user.id);
   if (!c) return fail(404, "Google Calendar isn't connected.");
   return json({ calendars: await setSelected(c, body.calendars) });

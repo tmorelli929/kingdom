@@ -16,7 +16,7 @@ const CAL_RESULT: Record<string, string> = {
 };
 
 const GMAIL_RESULT: Record<string, string> = {
-  connected: "Gmail connected. Checking recent mail for people in your network…",
+  connected: "Gmail connected. Checking recent mail…",
   denied: "Gmail wasn't connected: Kingdom needs the \"view your email message metadata\" permission. Try again and leave it checked.",
   work: "That's a work account, so Kingdom didn't connect it. Use your personal Gmail.",
   cancelled: "Gmail connection was cancelled.",
@@ -24,7 +24,8 @@ const GMAIL_RESULT: Record<string, string> = {
 };
 const fmtSynced = (iso: string) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-type GmailConn = { email: string; status: string; lastSyncedAt: string | null };
+type GmailConn = { email: string; status: string; lastSyncedAt: string | null; digest: boolean; digestLabel: string };
+type DigestResult = { found: number; suggested: number; problem?: "no-label" | "no-key" | "error" };
 type LinkedInPreview = { total: number; update: number; add: number; unchanged: number; sample: string[] };
 
 type CalConn = {
@@ -48,10 +49,16 @@ export default function Setup() {
   const syncGmail = async () => {
     setGmailBusy(true);
     try {
-      const r = await api<{ expired?: boolean; scanned: number; updated: number; skipped?: string }>("/api/connections/gmail/sync", "POST", { tz: tz() });
+      const r = await api<{ expired?: boolean; scanned: number; updated: number; skipped?: string; digest?: DigestResult }>("/api/connections/gmail/sync", "POST", { tz: tz() });
+      const d = r.digest;
+      const digestNote = !d || !gmail?.digest ? ""
+        : d.problem === "no-label" ? ` No Gmail label named "${gmail.digestLabel}" yet.`
+        : d.problem === "no-key" ? " A digest is waiting, but reading it needs the Anthropic key."
+        : d.problem === "error" ? " Couldn't read the digest just now; it'll be tried again."
+        : d.found ? ` Read ${d.found} digest${d.found === 1 ? "" : "s"}: ${d.suggested} suggested update${d.suggested === 1 ? "" : "s"} are waiting in Network.` : " No new digest.";
       if (r.expired) toast("Gmail access expired. Reconnect it below.");
-      else if (r.skipped === "no-emails") toast("None of your network has an email address saved yet, so there was nothing to match.");
-      else toast(`Checked ${r.scanned} new email${r.scanned === 1 ? "" : "s"}; updated last contact for ${r.updated} ${r.updated === 1 ? "person" : "people"}.`);
+      else if (r.skipped === "no-emails") toast("None of your network has an email address saved yet, so there was nothing to match." + digestNote);
+      else toast(`Checked ${r.scanned} new email${r.scanned === 1 ? "" : "s"}; updated last contact for ${r.updated} ${r.updated === 1 ? "person" : "people"}.` + digestNote);
       await Promise.all([loadConn(), reloadNet()]);
     } catch (e) { toast(e instanceof Error ? e.message : "Gmail sync failed."); }
     finally { setGmailBusy(false); }
@@ -145,11 +152,11 @@ export default function Setup() {
             <p className="small muted">
               {gmail?.status === "ok" ? `Connected as ${gmail.email}${gmail.lastSyncedAt ? `, last checked ${fmtSynced(gmail.lastSyncedAt)}` : ""}. `
                 : gmail?.status === "expired" ? "Google stopped Kingdom's access. Reconnect to keep last-contact dates current. " : ""}
-              Kingdom reads only who each email was from and to, and when. Never message text, subjects or attachments, and it never sends anything. It updates &quot;last contact&quot; for people in your network who have an email address saved. Personal Gmail only.
+              For last-contact dates, Kingdom reads only who each email was from and to, and when{gmail?.digest ? " (the only messages it opens are under your daily digest label)" : ": never message text, subjects or attachments"}. It never sends anything. It updates &quot;last contact&quot; for people in your network who have an email address saved. Personal Gmail only.
             </p>
             {gmail !== undefined && (
               <div className="btns" style={{ marginTop: 6 }}>
-                {gmail?.status !== "ok" && <a className="btn primary" href="/api/connections/gmail/start">{gmail ? "Reconnect" : "Connect Gmail"}</a>}
+                {gmail?.status !== "ok" && <a className="btn primary" href={`/api/connections/gmail/start${gmail?.digest ? "?digest=1" : ""}`}>{gmail ? "Reconnect" : "Connect Gmail"}</a>}
                 {gmail?.status === "ok" && <button className="btn" disabled={gmailBusy} onClick={syncGmail}>{gmailBusy ? "Checking…" : "Check now"}</button>}
                 {gmail && <button className="btn ghost" onClick={disconnectGmail}>Disconnect</button>}
               </div>
@@ -157,6 +164,23 @@ export default function Setup() {
           </div>
           <span className={`pill ${gmail?.status === "ok" ? "good" : gmail ? "warn" : "info"}`}>{gmail?.status === "ok" ? "CONNECTED" : gmail ? "EXPIRED" : "OFF"}</span>
         </div>
+        {gmail?.status === "ok" && (
+          <div className="conn">
+            <span className="avatar"><Icon name="people" /></span>
+            <div style={{ minWidth: 0 }} className="stack-s">
+              <b>Daily digest</b>
+              <p className="small muted">Email yourself a short end-of-day note about who you talked with. Kingdom opens only emails under the Gmail label below, has the AI pull out people and topics (customer and deal details are left out), and shows them in Network as suggestions you approve. Nothing changes until you tap Add, and the emails themselves aren&apos;t stored.</p>
+              <label className="field"><span className="lab">Gmail label</span>
+                <input className="in" id="digest-label" defaultValue={gmail.digestLabel} maxLength={100}
+                  onBlur={async (e) => { const v = e.target.value.trim(); if (!v || v === gmail.digestLabel) return; try { await api("/api/connections", "PATCH", { digestLabel: v }); setGmail({ ...gmail, digestLabel: v }); toast(`Digest label set to "${v}".`); } catch (err) { toast(err instanceof Error ? err.message : "Not saved."); } }} />
+              </label>
+              <p className="small muted">In Gmail, make a filter for the digest&apos;s sender that applies this label.</p>
+              {!gmail.digest && <div><a className="btn primary" href="/api/connections/gmail/start?digest=1">Turn on daily digest</a></div>}
+              {!gmail.digest && <p className="small faint">Google will ask to let Kingdom read your email. Kingdom uses that only for messages under this label.</p>}
+            </div>
+            <span className={`pill ${gmail.digest ? "good" : "info"}`}>{gmail.digest ? "ON" : "OFF"}</span>
+          </div>
+        )}
         <div className="conn">
           <span className="avatar"><Icon name="people" /></span>
           <div style={{ minWidth: 0 }} className="stack-s">
