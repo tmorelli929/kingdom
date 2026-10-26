@@ -1,29 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { keepVerified, parseBrief, verifyBrief } from "./news";
+import { parseFeed, plainBrief } from "./news";
 
-const s = (url: string) => ({ title: "T", source: "S", url, summary: "", why: "W", topic: "AI" });
+const rss = `<rss><channel>
+<item><title>Cisco unveils new AI switches - Reuters</title><link>https://news.google.com/rss/articles/abc</link><pubDate>Mon, 26 Oct 2026 10:00:00 GMT</pubDate><source url="https://www.reuters.com">Reuters</source></item>
+<item><title><![CDATA[Fed holds rates &amp; signals cut - AP News]]></title><link>https://news.google.com/rss/articles/def</link><source url="https://apnews.com">AP News</source></item>
+<item><title>Bad link</title><link>javascript:alert(1)</link></item>
+</channel></rss>`;
 
-test("reads the brief JSON from the model's final text, even inside a code fence", () => {
-  const b = parseBrief('Here you go:\n```json\n{"stories":[{"title":"A","source":"B","url":"https://x.com/a","summary":"s","why":"c","topic":"d"}],"quick":[],"starter":"x"}\n```');
-  assert.equal(b.stories.length, 1);
-  assert.equal(b.starter, "x");
-  assert.equal(b.bigIdea, "");
-  assert.deepEqual(parseBrief("no json").stories, []);
-  assert.deepEqual(parseBrief('{"stories":[{"title":"A"}]}').stories, []);
+test("reads headlines from a Google News feed and trims the source off the title", () => {
+  const h = parseFeed(rss, "AI");
+  assert.equal(h.length, 2);
+  assert.deepEqual([h[0].title, h[0].source, h[0].topic], ["Cisco unveils new AI switches", "Reuters", "AI"]);
+  assert.equal(h[1].title, "Fed holds rates & signals cut");
 });
 
-test("drops any story whose link didn't come back from the search", () => {
-  const seen = new Set(["https://www.example.com/story/", "https://news.site/b?utm=1"]);
-  const out = keepVerified([s("https://example.com/story"), s("https://made.up/c"), s("https://news.site/b"), s("https://news.site/b")], seen);
-  assert.deepEqual(out.map((x) => x.url), ["https://example.com/story", "https://news.site/b"]);
-});
-
-test("quick headlines are verified too and never repeat a main story", () => {
-  const seen = new Set(["https://a.com/1", "https://b.com/2", "https://c.com/3"]);
-  const q = (url: string) => ({ title: "Q", source: "S", url });
-  const b = verifyBrief({ stories: [s("https://a.com/1")], quick: [q("https://a.com/1"), q("https://fake.com/x"), q("https://b.com/2"), q("https://c.com/3")], bigIdea: "i", starter: "t" }, seen);
-  assert.deepEqual(b.quick.map((x) => x.url), ["https://b.com/2", "https://c.com/3"]);
-  assert.equal(b.starter, "t");
-  assert.equal(verifyBrief({ stories: [s("https://fake.com/y")], quick: [], bigIdea: "i", starter: "t" }, seen).starter, "");
+test("without AI, the brief is the top headline per topic", () => {
+  const h = (title: string, topic: string) => ({ title, source: "S", url: `https://x/${title}`, topic });
+  const b = plainBrief([h("a1", "A"), h("a2", "A"), h("b1", "B")]);
+  assert.deepEqual(b.stories.map((s) => s.title), ["a1", "b1"]);
+  assert.deepEqual(b.quick.map((s) => s.title), ["a2"]);
 });
