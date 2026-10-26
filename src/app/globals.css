@@ -359,3 +359,10 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .welcome { display: grid; gap: 14px; padding-top: 28px; max-width: 640px }
 .welcome .hello h1 { font-size: clamp(30px, 8vw, 40px) }
 .welcome-go { width: 100%; margin-top: 6px }
+.headlines { display: grid; gap: 14px }
+.headline { display: grid; gap: 6px; color: inherit; text-decoration: none; border-radius: var(--r); overflow: hidden; background: var(--surface); border: 1px solid var(--line); padding-bottom: 12px }
+.headline img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: linear-gradient(135deg, var(--surface-2), var(--gold-soft)) }
+.headline-title, .headline .small { padding: 0 14px }
+.headline-title { font-family: var(--display); font-weight: 700; font-size: 18px; line-height: 1.3; padding-top: 6px }
+.headline:hover .headline-title { color: var(--gold) }
+.headline.noimg { padding-top: 10px }

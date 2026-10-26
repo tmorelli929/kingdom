@@ -8,7 +8,8 @@ import { fetchHeadlines, plainBrief, type Brief } from "@/lib/news";
 
 export const maxDuration = 60;
 const DAILY_LIMIT = 12;
-type Stored = Brief & { date: string; topics: string[]; at: string };
+type Stored = Brief & { date: string; topics: string[]; at: string; v?: number };
+const VERSION = 2; // briefs made before pictures are remade
 
 async function latest(userId: string) {
   const [row] = await db.select({ content: schema.coachMessages.content }).from(schema.coachMessages)
@@ -21,10 +22,11 @@ async function latest(userId: string) {
 export const GET = authed(async (req, user) => {
   const tz = new URL(req.url).searchParams.get("tz") ?? undefined;
   const cur = await latest(user.id);
-  return json({ configured: true, news: cur && cur.date === todayIn(tz) ? cur : null, stale: cur && cur.date !== todayIn(tz) ? cur : null });
+  const fresh = cur && cur.date === todayIn(tz) && cur.v === VERSION;
+  return json({ configured: true, news: fresh ? cur : null, stale: cur && !fresh ? cur : null });
 });
 
-// POST { tz }: gathers today's headlines on his topics from Google News.
+// POST { tz }: gathers today's headlines on his topics from the news feeds.
 export const POST = authed(async (req, user) => {
   const body = z.object({ tz: z.string().max(64).optional() }).parse(await readJson(req));
   const made = await db.select({ id: schema.coachMessages.id }).from(schema.coachMessages)
@@ -45,7 +47,7 @@ export const POST = authed(async (req, user) => {
     console.error("news failed:", e instanceof Error ? e.name : "unknown");
     return fail(502, "Couldn't fetch news just now. Try again shortly.");
   }
-  const stored: Stored = { ...brief, date: today, topics, at: new Date().toISOString() };
+  const stored: Stored = { ...brief, date: today, topics, at: new Date().toISOString(), v: VERSION };
   await db.insert(schema.coachMessages).values({ userId: user.id, kind: "news", role: "assistant", content: JSON.stringify(stored) });
   return json({ news: stored });
 });
