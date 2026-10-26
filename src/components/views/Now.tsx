@@ -6,7 +6,7 @@ import { doneOn, setDone, setSkipped } from "@/lib/life/habits";
 import { matchBlocks, splitByTime, type NowItem } from "@/lib/life/now";
 import { api } from "../api";
 import { useApp } from "../App";
-import { useCalendar } from "../calendar";
+import type { CalendarState } from "../calendar";
 import { useFitness } from "../fitness";
 
 const minutesNow = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
@@ -14,10 +14,9 @@ const span = (i: NowItem) => `${fmtTime(i.event.start!)}–${fmtTime(i.event.end
 
 // Today's calendar blocks matched to his habits and workout: what this block is for, with one tap to log it.
 // Anything skipped or missed stays under "Still open today" so it can be done later.
-export default function Now({ onOpenWorkout }: { onOpenWorkout: (id: string) => void }) {
+export default function Now({ cal, onOpenWorkout }: { cal: CalendarState; onOpenWorkout: (id: string) => void }) {
   const { doc, today, mutate, toast } = useApp();
   const { data: fit } = useFitness();
-  const { cal } = useCalendar(today, 1);
   const [nowMin, setNowMin] = useState(minutesNow);
   useEffect(() => { const t = setInterval(() => setNowMin(minutesNow()), 60000); return () => clearInterval(t); }, []);
 

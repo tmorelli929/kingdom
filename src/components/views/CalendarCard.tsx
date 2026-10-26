@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { DOW, fmtShort, parseKey } from "@/lib/life/dates";
-import { fmtTime, summarizeDay, type CalEvent } from "@/lib/life/calendar";
+import { fmtTime, type CalEvent } from "@/lib/life/calendar";
 import { api } from "../api";
 import { useApp } from "../App";
 import { useCalendar } from "../calendar";
@@ -49,7 +49,6 @@ export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { day
 
       <div className="calweek">
         {days.map((d) => {
-          const s = summarizeDay(events, d);
           const allDay = events.filter((e) => e.date === d && e.allDay);
           const timed = events.filter((e) => e.date === d && !e.allDay);
           const ws = workoutsOn(d);
@@ -57,7 +56,7 @@ export function CalendarWeek({ days, onOpenWorkout, title = "Your week" }: { day
             <div key={d} className={`calday${d === today ? " today" : ""}${d < today ? " past" : ""}`}>
               <div className="calday-head">
                 <b>{DOW[(parseKey(d).getDay() + 6) % 7]}</b> <span className="faint small">{fmtShort(d)}</span>
-                <span className="calflags">{cal.state === "ok" && s.eveningFree && d >= today && <span className="pill good">EVENING FREE</span>}</span>
+                
               </div>
               {allDay.map((e) => (
                 <div key={`${e.calendarId}-${e.id}`} className="allday" style={{ borderColor: e.color }} title={e.calendar}>

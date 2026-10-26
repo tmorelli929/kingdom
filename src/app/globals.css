@@ -1,5 +1,5 @@
 /* Kingdom visual identity, carried over from V1: charcoal ground, gold for progress, blue and green accents.
-   Dark first; a light palette follows the system setting. */
+   Always dark, with light text. */
 :root {
   --bg: #111316; --surface: #181b20; --surface-2: #20242b; --line: #2b3038;
   --fg: #ece8df; --muted: #9aa0a8; --faint: #6b717a;
@@ -10,14 +10,6 @@
   --mono: var(--font-mono), ui-monospace, Menlo, monospace;
   --r: 14px;
   color-scheme: dark;
-}
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f3f1ec; --surface: #ffffff; --surface-2: #f0ede6; --line: #e2ddd2;
-    --fg: #1c1d20; --muted: #5d626a; --faint: #8b9098;
-    --gold: #9a7428; --gold-soft: rgba(154,116,40,.12);
-    --blue: #2f62c9; --green: #23875a; --warn: #a8661c; --danger: #b4483a; color-scheme: light;
-  }
 }
 
 * { box-sizing: border-box }
@@ -205,8 +197,9 @@ textarea.in { resize: vertical; min-height: 70px; line-height: 1.5 }
 @media (min-width: 761px) { .skills { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) } }
 
 /* Calendar */
-.calweek { display: grid; gap: 8px; margin-top: 10px }
-.calday { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0 }
+.calweek { display: grid; gap: 0; margin-top: 6px }
+.calday { border-top: 1px solid var(--line); padding: 10px 0; min-width: 0 }
+.calday:first-child { border-top: 0 }
 .calday.today { border-color: color-mix(in srgb, var(--gold) 60%, transparent) }
 .calday.past { opacity: .6 }
 .calday-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 4px }
@@ -316,10 +309,13 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .insight:first-child { border-top: 0; padding-top: 0 }
 
 /* News */
-.story { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none }
+.story { border-top: 1px solid var(--line); padding: 10px 0 }
 .story:first-child { border-top: 0; padding-top: 0 }
+.story-head { display: grid; gap: 4px; width: 100%; text-align: left; background: none; border: 0; padding: 0 }
 .story-title { font-weight: 600; line-height: 1.35 }
-.story:hover .story-title { color: var(--gold) }
+.story-head:hover .story-title, .story-head[aria-expanded="true"] .story-title { color: var(--gold) }
+.story-body { padding-top: 8px }
+.story-body a { color: var(--gold); text-decoration: none }
 .story .why { color: var(--gold); font-weight: 600 }
 .brief-extra { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line) }
 .brief-extra p { margin: 0 }
@@ -334,3 +330,21 @@ button.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px 
 .spend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px }
 .spend > div { display: grid; gap: 4px }
 .spend b { font-size: 20px }
+
+/* Today */
+.today { display: grid; gap: 14px; padding-top: 8px }
+.today > .sec { margin-top: 18px }
+.hello { padding: 6px 2px 4px }
+.hello h1 { font-size: clamp(26px, 6vw, 32px) }
+.plan-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); width: 100%; text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; color: inherit }
+.card-head + .plan-row { border-top: 0 }
+.plan-time { width: 64px; flex: none; font: 600 12px var(--mono); color: var(--faint) }
+.workout-row .plan-time, .workout-row .grow { color: var(--gold) }
+.habit-checks { display: grid; gap: 2px; padding-top: 10px; border-top: 1px solid var(--line) }
+.habit-check { display: flex; align-items: center; gap: 12px; padding: 4px 0 }
+.habit-check.on .grow { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint) }
+.now-card { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); background: linear-gradient(180deg, var(--gold-soft), var(--surface) 70%) }
+.page { display: grid; gap: 14px; padding-top: 16px }
+.plan-row.past { opacity: .45 }
+.plan-row.current .plan-time, .plan-row.current .grow { color: var(--fg); font-weight: 600 }
+.plan-row.current .plan-time::before { content: "● "; color: var(--gold) }
