@@ -36,3 +36,8 @@ export function scheduleLabel(h: Habit) {
   if (d.join() === "0,6") return "Weekends";
   return d.map((x) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][x]).join(", ");
 }
+
+// The first day anything was checked off. Consistency counts from here, so days before he
+// started using the app aren't treated as misses.
+export const firstLoggedDay = (doc: LifeDoc, today: string) =>
+  Object.keys(doc.days).filter((k) => Object.values(doc.days[k]?.done ?? {}).some(Boolean)).sort()[0] ?? today;

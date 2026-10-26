@@ -1,30 +1,31 @@
-import { addDays, daysBetween, DOW, fmtShort, weekDays, weekOf } from "./life/dates";
-import { fmtHours, fmtTime, summarizeDay, type CalEvent } from "./life/calendar";
+import { addDays, daysBetween, DOW, fmtShort, parseKey, weekOf } from "./life/dates";
+import { fmtTime, summarizeDay, type CalEvent } from "./life/calendar";
+import { consistency, doneOn, firstLoggedDay, scheduledOn, scheduleLabel } from "./life/habits";
 import {
-  lastInteraction, metricCount, METRIC_LABEL, needsTakeaways, openCommitments, reconnectList, upcomingMeetings,
-  networkXp, type NetworkData, type Person,
+  lastContact, metricCount, METRIC_LABEL, needsTakeaways, openCommitments, reconnectList, upcomingMeetings,
+  type NetworkData, type Person,
 } from "./life/network";
-import { alignment, areaConsistency, levelOf, recentWeeks, trackedDays, xpByArea } from "./life/scoring";
 import type { LifeDoc } from "./life/types";
+import type { FitnessData } from "./fitness-db";
+import { durationMin, fmtSession, personalRecords, sessionsFor } from "./fitness/history";
 
-export const COACH_SYSTEM = `You are Kingdom's coach: a personal chief of staff, life coach and accountability partner for one person. His framework is the Kingdom Builder Protocol, grounded in Matthew 6:33. He is a Christian; respect that faith and speak from it naturally when relevant, without preaching.
+export const COACH_SYSTEM = `You are the assistant inside Thomas's personal dashboard. The dashboard holds his calendar, his training program and workout logs, his habits, and his personal network. Help him plan his days, train well, keep his habits, and look after the people in his life.
 
 How you work:
-- Be direct, thoughtful, practical and willing to challenge him. Encourage only when the evidence earns it. Never congratulate him for the bare minimum. No generic motivation, no hype, no emoji, never mention XP or points.
-- Ground every claim in the data you are given. The data is labeled by source: [ENTERED] is what he typed into Kingdom, [REFLECTION] is his own reflection writing, [CONNECTED] is from connected accounts. When you infer something that isn't stated, say it's your read ("My read:"). If the data doesn't cover something, say so instead of guessing.
-- Don't make assumptions about his marriage, spiritual life or emotional state beyond what he wrote. Never judge or score his spiritual maturity.
-- Relationships outrank achievement. If career or entrepreneurship is strong while faith, marriage, health or rest is thin, say so plainly. Career ambition must not crowd out everything else.
-- Plan realistically. Prefer protecting time for what matters over adding tasks. Suggest specific days, times and people. When his calendar is connected, use it: name free evenings, flag overloaded days, and check whether his priorities actually have time on the calendar. Don't speculate about what a work meeting is about.
-- Relationships are about investing in people, not extracting value. When helping with networking, focus on genuine interest, follow-through and service. Never rank people by status or usefulness.
-- If asked to draft a message, write it in his voice: warm, brief, plain. Kingdom never sends messages; he sends them himself.
-- Kingdom is personal. Never ask for or use information from his employer's internal systems, customers or confidential data.
-- Keep answers short: under 150 words unless he asks for a plan or a draft. Use short paragraphs or a few bullets.`;
+- Use only the data you're given. It's labeled by source: [CALENDAR] is read from his Google Calendar, [FITNESS], [HABITS] and [NETWORK] are what he logged in the app, [EMAIL] is last-contact dates from Gmail headers (no message content). If the data doesn't cover something, say so plainly. Never invent events, numbers, dates, people or conversations. When you infer something, say it's your read.
+- Be direct, practical and brief: under 150 words unless he asks for a plan or a draft. Short paragraphs or a few bullets. No hype, no emoji.
+- Planning: use real free time from the calendar, name specific days and times, and don't stack more onto a full day. Don't speculate about what a work meeting is about.
+- Training: base suggestions on his logged sets and the program's targets. He has multidirectional shoulder instability: never push overhead pressing or end-range shoulder positions, and favor his substitutions. You aren't a doctor; for pain or injury, tell him to stop and see a professional.
+- People: focus on genuine interest and follow-through, never on how useful someone is. Drafts are in his voice: warm, brief, plain. The app never sends messages; he sends them himself.
+- He has faith-related habits; treat them like any other habit unless he brings faith up.
+- This is personal. Never ask for or use anything from his employer's systems, customers or confidential data.`;
 
-const pct = (v: number | null) => (v === null ? "n/a" : `${Math.round(v * 100)}%`);
+const dow = (d: string) => DOW[(parseKey(d).getDay() + 6) % 7];
 
 function personLine(p: Person, d: NetworkData, today: string) {
-  const last = lastInteraction(p.id, d.interactions, today);
-  const bits = [p.name, [p.title, p.organization].filter(Boolean).join(" at "), p.categories.join("/"), last ? `last spoke ${fmtShort(last.occurredOn)}` : "no conversation logged"];
+  const last = lastContact(p, d.interactions, today);
+  const bits = [p.name, [p.title, p.organization].filter(Boolean).join(" at "), p.categories.join("/"),
+    last ? `last contact ${fmtShort(last.on)} (${last.label.toLowerCase()}${last.label.includes("emailed") ? ", from [EMAIL]" : ""})` : "no contact logged"];
   return "- " + bits.filter(Boolean).join(" | ");
 }
 
@@ -51,98 +52,92 @@ function mentioned(people: Person[], message: string) {
   });
 }
 
-// Builds the coach's view of his life. Only what the coach-access settings allow is included,
-// and people marked private never appear.
 export type CalendarContext = { status: "ok"; events: CalEvent[] } | { status: "none" | "expired" | "error" | "hidden" };
 
-// One line per day: how full it is, whether the evening is open, and what's on it.
-function calendarLines(events: CalEvent[], today: string, wk: string) {
-  const days = [...weekDays(wk), ...Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))].filter((d, i, a) => a.indexOf(d) === i);
-  return days.map((d) => {
+// One line per day for today and the next 13 days: events, and whether the evening is open.
+function calendarLines(events: CalEvent[], today: string) {
+  return Array.from({ length: 14 }, (_, i) => addDays(today, i)).map((d) => {
     const s = summarizeDay(events, d);
     const list = events.filter((e) => e.date === d).slice(0, 12)
       .map((e) => `${e.allDay ? "all day" : `${fmtTime(e.start!)}-${fmtTime(e.end!)}`} ${e.title.slice(0, 80)}${e.free ? " (marked free)" : ""}`);
-    const dow = DOW[(new Date(`${d}T12:00:00`).getDay() + 6) % 7];
-    const when = d < today ? "past" : d === today ? "TODAY" : "upcoming";
-    return `- ${dow} ${d} (${when}): ${s.count} events, ${fmtHours(s.busyMinutes)} booked, evening ${s.eveningFree ? "free" : "booked"}${s.overloaded ? ", OVERLOADED" : ""}.${list.length ? " " + list.join("; ") : ""}`;
+    return `- ${dow(d)} ${d}${d === today ? " (TODAY)" : ""}: evening ${s.eveningFree ? "free" : "booked"}.${list.length ? " " + list.join("; ") : " No events."}`;
   });
 }
 
-export function buildContext(doc: LifeDoc, net: NetworkData, today: string, localTime: string, message: string, cal: CalendarContext = { status: "none" }) {
+function fitnessLines(fit: FitnessData, today: string) {
+  const out: string[] = [];
+  const unit = fit.settings.unit;
+  const name = new Map(fit.exercises.map((e) => [e.key, e.name]));
+  const fmtW = (w: (typeof fit.workouts)[number]) => `${dow(w.date)} ${w.date}: ${w.title}${w.kind === "lift" ? ` (${w.focus})` : ""}, ${w.status}${w.cardioDone ? `, cardio ${w.cardioMinutes ?? 0} min` : ""}${durationMin(w) ? `, ${durationMin(w)} min` : ""}${w.note ? `. Note: ${w.note.slice(0, 200)}` : ""}`;
   const wk = weekOf(today);
+  const week = fit.workouts.filter((w) => w.date >= wk && w.date <= addDays(wk, 6));
+  out.push(`This week: ${week.filter((w) => w.kind === "lift" && w.status === "completed").length} of ${week.filter((w) => w.kind === "lift").length} lifts done.`);
+  for (const w of fit.workouts.filter((w) => w.date >= addDays(today, -3) && w.date <= addDays(today, 7))) out.push(`- ${fmtW(w)}`);
+  const todays = fit.workouts.find((w) => w.date === today && w.kind === "lift");
+  if (todays) {
+    out.push(`Today's plan (${todays.title}):`);
+    todays.plan.forEach((item, slot) => {
+      const last = sessionsFor(fit, item.key, todays.id)[0];
+      const loggedToday = fit.sets.filter((x) => x.workoutId === todays.id && x.slot === slot && x.done).sort((a, b) => a.setNumber - b.setNumber);
+      out.push(`  - ${name.get(item.key) ?? item.key}: ${item.sets} x ${item.repLow}-${item.repHigh}. Last time: ${last ? `${fmtSession(last, unit)} (${last.date})` : "no history"}${loggedToday.length ? `. Today so far: ${fmtSession({ date: today, sets: loggedToday }, unit)}` : ""}`);
+    });
+  }
+  const done = fit.workouts.filter((w) => w.status === "completed" && w.date < today).slice(-5);
+  if (done.length) out.push(`Recent completed sessions: ${done.map((w) => `${w.date} ${w.title}`).join("; ")}.`);
+  const prs = personalRecords(fit).slice(0, 6);
+  if (prs.length) out.push(`Best sets (by estimated 1RM): ${prs.map((p) => `${name.get(p.key) ?? p.key} ${p.weight}${unit} x ${p.reps} on ${p.date}`).join("; ")}.`);
+  const bw = fit.bodyWeights.slice(-3);
+  if (bw.length) out.push(`Body weight: ${bw.map((b) => `${b.weight}${unit} on ${b.date}`).join(", ")}.`);
+  return out;
+}
+
+function habitLines(doc: LifeDoc, today: string) {
+  const first = firstLoggedDay(doc, today);
+  const from = addDays(today, -27) > first ? addDays(today, -27) : first;
+  return doc.habits.map((h) => {
+    const four = consistency(doc, h, from, today, today);
+    const todayState = scheduledOn(h, today) ? (doneOn(doc, h.id, today) ? "done today" : "not done yet today") : "not scheduled today";
+    return `- ${h.name} (${scheduleLabel(h)}): ${todayState}; since ${from}: ${four ? `${four.done}/${four.sched} scheduled days` : "nothing scheduled"}.`;
+  });
+}
+
+// Builds the assistant's view of his data. Only what his sharing settings allow is included,
+// and people marked private never appear.
+export function buildContext(doc: LifeDoc, net: NetworkData, fit: FitnessData | null, today: string, localTime: string, message: string, cal: CalendarContext = { status: "none" }) {
   const out: string[] = [];
   const access = doc.coachAccess ?? { reflections: true, network: true, profile: true };
-  out.push(`NOW: ${localTime}. Today is ${today}. This week started ${wk}.`);
+  out.push(`NOW: ${localTime}. Today is ${dow(today)} ${today}.`);
   if (cal.status === "ok") {
-    out.push(`[CONNECTED] GOOGLE CALENDAR (his personal calendar, read-only; evenings are 6pm-9:30pm), this week and the next 7 days:`);
-    out.push(...calendarLines(cal.events, today, wk));
+    out.push(`\n[CALENDAR] Google Calendar, read-only. Evenings are 6pm-9:30pm. Today and the next 13 days:`);
+    out.push(...calendarLines(cal.events, today));
   } else {
-    const why = { none: "Google Calendar isn't connected", expired: "Google Calendar access expired and needs reconnecting in Setup", error: "Google Calendar couldn't be reached just now", hidden: "He chose not to share his calendar with the coach" }[cal.status];
-    out.push(`[CONNECTED] ${why}. Any schedule information below is only what he typed.`);
+    const why = { none: "Google Calendar isn't connected", expired: "Google Calendar access expired and needs reconnecting in Settings", error: "Google Calendar couldn't be reached just now", hidden: "He chose not to share his calendar with the assistant" }[cal.status];
+    out.push(`\n[CALENDAR] ${why}, so you don't know his schedule beyond his workouts.`);
   }
 
-  if (access.profile) {
-    out.push(`\n[ENTERED] ABOUT HIM: ${doc.about}`);
-    out.push(`Anchor verse: ${doc.scripture}`);
-    out.push(`Principles: ${doc.principles.map((p) => p.join(" ")).join("; ")}.`);
+  if (fit) {
+    out.push(`\n[FITNESS] Push/pull/legs program, lifting Mon-Sat, Sunday recovery. Workouts around today:`);
+    out.push(...fitnessLines(fit, today));
   }
 
-  const xp = xpByArea(doc, networkXp(net, doc, today));
-  const weeks = recentWeeks(today, 5);
-  out.push(`\n[ENTERED] LIFE AREAS: consistency for the last 5 weeks (oldest to this week), level, and what success means to him:`);
-  for (const a of doc.areas) {
-    const series = weeks.map((w) => pct(areaConsistency(doc, a.id, w, today))).join(", ");
-    out.push(`- ${a.name}: ${series}. Level ${levelOf(xp[a.id] ?? 0).L}. Success: ${a.vision}${a.noScore ? " (He chose not to self-rate this area.)" : ""}`);
-  }
-  out.push(`Overall alignment, last 8 weeks: ${recentWeeks(today, 8).map((w) => pct(alignment(doc, w, today))).join(", ")}. (Alignment weighs the average with the weakest area.)`);
-
-  const days = trackedDays(doc, wk, today);
-  const last30 = Array.from({ length: 30 }, (_, i) => addDays(today, -i));
-  const prev30 = Array.from({ length: 30 }, (_, i) => addDays(today, -30 - i));
-  const count = (keys: string[], hid: string) => keys.filter((k) => doc.days[k]?.done?.[hid]).length;
-  out.push(`\n[ENTERED] DAILY QUESTS: days kept this week / last 30 days / the 30 days before that:`);
-  for (const h of doc.habits) out.push(`- ${h.name}: ${count(days, h.id)}/${days.length} this week, ${count(last30, h.id)} vs ${count(prev30, h.id)}`);
-
-  const d = doc.days[today];
-  if (d) {
-    out.push(`\n[ENTERED] TODAY: intention "${d.intention || "none"}". Priorities: ${d.priorities.map((p) => `${p.t || "(blank)"}${p.d ? " [done]" : ""}`).join(" | ")}.`);
-    out.push(`Quests done today: ${doc.habits.filter((h) => d.done?.[h.id]).map((h) => h.name).join(", ") || "none yet"}.`);
-  }
-  out.push(`\n[ENTERED] THIS WEEK'S MISSIONS:`);
-  for (const g of doc.goals.filter((g) => g.week === wk)) out.push(`- ${g.title} (${doc.areas.find((a) => a.id === g.areaId)?.name ?? ""}): ${g.count}/${g.target}`);
-  const openMs = doc.milestones.filter((m) => !m.done).map((m) => m.title);
-  if (openMs.length) out.push(`Long-term milestones in progress: ${openMs.join("; ")}.`);
-  if (doc.schedule[wk]) out.push(`\n[ENTERED] HIS NOTE ABOUT THIS WEEK'S CALENDAR: ${doc.schedule[wk]}`);
-
-  if (access.reflections) {
-    const keys = Object.keys(doc.reflections).filter((k) => doc.reflections[k].done || Object.values(doc.reflections[k].areas || {}).some((e) => e?.note)).sort().slice(-3);
-    for (const k of keys) {
-      const r = doc.reflections[k];
-      const parts = doc.areas.map((a) => {
-        const e = r.areas?.[a.id];
-        return e && (e.note || e.rating) ? `${a.name}${e.rating ? ` ${e.rating}/5` : ""}: ${e.note ?? ""}` : "";
-      }).filter(Boolean);
-      out.push(`\n[REFLECTION] WEEK OF ${k}: Lived what matters: ${r.wins || "-"}. Will protect next: ${r.next || "-"}. ${parts.join(" | ")}`);
-    }
+  if (doc.habits.length) {
+    out.push(`\n[HABITS]`);
+    out.push(...habitLines(doc, today));
   }
 
   if (access.network) {
-    const visible: NetworkData = {
-      people: net.people.filter((p) => p.aiAccess),
-      interactions: [],
-      commitments: [],
-    };
+    const visible: NetworkData = { people: net.people.filter((p) => p.aiAccess), interactions: [], commitments: [] };
     const ids = new Set(visible.people.map((p) => p.id));
     visible.interactions = net.interactions.filter((i) => ids.has(i.personId));
     visible.commitments = net.commitments.filter((c) => ids.has(c.personId));
     const byId = new Map(visible.people.map((p) => [p.id, p]));
 
-    out.push(`\n[ENTERED] RELATIONSHIP GOALS:`);
-    for (const g of doc.networkGoals ?? []) out.push(`- ${g.title} (${METRIC_LABEL[g.metric]}, this ${g.period}): ${metricCount(g.metric, g.period, visible, today)}/${g.target}`);
+    out.push(`\n[NETWORK]`);
+    for (const g of doc.networkGoals ?? []) out.push(`Goal: ${g.title} (${METRIC_LABEL[g.metric]}, this ${g.period}): ${metricCount(g.metric, g.period, visible, today)}/${g.target}`);
     const rec = reconnectList(visible, today).slice(0, 8);
     if (rec.length) out.push(`Due for a reconnect: ${rec.map((r) => `${r.person.name} (${r.why})`).join("; ")}.`);
     const up = upcomingMeetings(visible, today).slice(0, 6);
-    if (up.length) out.push(`Upcoming: ${up.map((i) => `${byId.get(i.personId)?.name} on ${i.occurredOn} (${i.kind})`).join("; ")}.`);
+    if (up.length) out.push(`Planned: ${up.map((i) => `${byId.get(i.personId)?.name} on ${i.occurredOn} (${i.kind})`).join("; ")}.`);
     const nt = needsTakeaways(visible, today);
     if (nt.length) out.push(`Recent meetings with no notes yet: ${nt.map((i) => `${byId.get(i.personId)?.name} ${i.occurredOn}`).join("; ")}.`);
     const oc = openCommitments(visible).slice(0, 8);
@@ -152,15 +147,16 @@ export function buildContext(doc: LifeDoc, net: NetworkData, today: string, loca
     for (const p of mentioned(visible.people, message)) focus.set(p.id, p);
     for (const i of up.slice(0, 3)) { const p = byId.get(i.personId); if (p) focus.set(p.id, p); }
     for (const r of rec.slice(0, 3)) focus.set(r.person.id, r.person);
-    if (focus.size) out.push(`\n[ENTERED] PEOPLE IN FOCUS (his notes):\n${[...focus.values()].slice(0, 8).map((p) => personDetail(p, visible, today)).join("\n")}`);
+    if (focus.size) out.push(`People in focus (his notes):\n${[...focus.values()].slice(0, 8).map((p) => personDetail(p, visible, today)).join("\n")}`);
     if (visible.people.length) {
-      out.push(`\n[ENTERED] DIRECTORY (${visible.people.length} people he chose to share with the coach):`);
+      out.push(`Directory (${visible.people.length} people he shares with the assistant${visible.people.length > 150 ? ", first 150 shown" : ""}):`);
       for (const p of visible.people.slice(0, 150)) out.push(personLine(p, visible, today));
-      const newThisMonth = visible.people.filter((p) => daysBetween(p.addedOn, today) <= 30).length;
-      out.push(`Added in the last 30 days: ${newThisMonth}.`);
+      out.push(`Added in the last 30 days: ${visible.people.filter((p) => daysBetween(p.addedOn, today) <= 30).length}.`);
     } else {
-      out.push("No people in his network are shared with the coach.");
+      out.push("No people in his network are shared with the assistant.");
     }
+  } else {
+    out.push(`\n[NETWORK] He chose not to share his network with the assistant.`);
   }
   return out.join("\n");
 }
